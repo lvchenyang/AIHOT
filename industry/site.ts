@@ -4,18 +4,18 @@
 
 export const SITE = {
   /** 站名：导航、页面标题、分享图、RSS、MCP、后台都用它。 */
-  name: "LNG与天然气热点",
+  name: "气市观察",
   /**
    * 行业词：拼进默认说法里，比如“天然气日报”“天然气动态”。
    * 改成“法律”“HR”“黄金”之类，页面上就会变成“法律日报”“法律动态”。
    */
   subject: "天然气",
   /** 首页的完整标题（浏览器标签、搜索结果）。 */
-  homeTitle: "LNG与天然气热点 — 价格、气源、运输与国际动态",
+  homeTitle: "气市观察 — 价格、气源、运输与国际动态",
   /** 一句话介绍：搜索引擎、分享卡片、RSS、llms.txt 会用。 */
   description: "关注 LNG 与天然气价格、国内液厂和气井、运输与接收站，以及影响贸易和供需的国际局势。每条信息保留原文链接。",
   /** 首页左上角和侧边栏下面的一行小字。 */
-  tagline: "看价格、找气源、跟进运输与供需",
+  tagline: "关注气源与市场",
   /** 界面语言（HTML lang、og:locale）。 */
   locale: "zh-CN",
   /** 默认域名，只在没设置 SITE_URL 时使用。 */
@@ -33,7 +33,7 @@ export const SITE = {
   icp: null as string | null,
   /** 结构化数据里的网站运营者（搜索引擎用）。 */
   organization: {
-    name: "LNG与天然气热点",
+    name: "气市观察",
     /** 创始人（选填）：{ name, url, description }。 */
     founder: null as null | { name: string; url?: string; description?: string },
   },

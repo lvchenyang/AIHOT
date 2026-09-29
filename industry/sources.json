@@ -1,5 +1,5 @@
 {
-  "$comment": "LNG与天然气热点信源。已核验列表和RSS为候选采集配置；外部终端及受限来源停用并隔离。全文展示全部关闭。状态与证据见 docs/lng-sources.md。首次seed新增，已有源不覆盖。",
+  "$comment": "气市观察信源。已核验列表和RSS为候选采集配置；外部终端及受限来源停用并隔离。全文展示全部关闭。状态与证据见 docs/lng-sources.md。首次seed新增，已有源不覆盖。",
   "sources": [
     {
       "id": "web-lng168",
