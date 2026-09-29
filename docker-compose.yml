@@ -3,8 +3,8 @@
 name: aihot
 
 x-app: &app
-  build: .
   image: aihot-app
+  pull_policy: never
   env_file: .env
   restart: unless-stopped
   environment: &app-env
@@ -38,6 +38,10 @@ services:
   # Applies the database migrations and seeds the topics and demo sources, then exits.
   setup:
     <<: *app
+    build:
+      context: .
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-}
     restart: "no"
     command: ["sh", "-c", "node scripts/migrate.ts && node scripts/seed.ts"]
 

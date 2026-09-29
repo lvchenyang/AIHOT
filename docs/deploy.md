@@ -5,7 +5,7 @@
 需要一台装了 Docker（带 Compose）的机器。云服务器建议至少 2 核、4 GB 内存，构建镜像时要用到。
 
 ```bash
-git clone https://github.com/KKKKhazix/AIHOT.git myhot
+git clone https://github.com/lvchenyang/AIHOT.git myhot
 cd myhot
 node scripts/init-env.ts --llm-key <你的模型 API Key>
 docker compose up -d --build
@@ -13,16 +13,32 @@ docker compose up -d --build
 
 `init-env.ts` 会生成 `.env`，填好随机密钥和管理员密码，并把密码打印一次。机器上没有 Node 的话，把 `.env.example` 复制成 `.env`，自己填 `ADMIN_PASSWORD`（至少 12 位）、`SESSION_SECRET`、`IMG_PROXY_SIGN_SECRET`、`POSTGRES_PASSWORD`（各用 `openssl rand -hex 32` 生成）和 `LLM_API_KEY`。
 
-启动后打开 `http://服务器地址:3000`，后台在 `/admin`，用管理员密码登录。第一次启动会导入示范信源，一两分钟后开始出现内容；第一次导入的一百多条资料大约半小时处理完（每条都要预筛、评分，入选的还要写标题摘要）。
+启动后打开 `http://服务器地址:3000`，后台在 `/admin`，用管理员密码登录。第一次启动会导入行业信源和主题；只有开启采集、配置模型并允许模型调用后，才会开始处理资讯。开发期间保持 `.env` 中的采集、模型调用、飞书推送和 IndexNow 开关关闭。
 
 `docker compose` 会起五个容器：`db`（PostgreSQL 17）、`setup`（每次启动先跑数据库迁移和种子数据，然后退出）、`api`、`worker`（抓取、模型处理、定时任务）、`web`（网页）。
 
+应用镜像只由 `setup` 构建一次，`api`、`worker`、`web` 共用它，避免多个服务并行导出同名镜像时发生冲突。首次启动或更新代码时使用上面的 `--build` 命令。
+
+如果本机 3000 端口已被其他服务占用，可在 `.env` 设置 `PORT=127.0.0.1:3200` 和 `SITE_URL=http://localhost:3200`，再打开 `http://localhost:3200`。
+
 ### 在中国大陆的服务器上
 
-- 构建时 npm 走国内镜像：`docker compose build --build-arg NPM_REGISTRY=https://registry.npmmirror.com`，然后 `docker compose up -d`。
-- 拉取 Docker 镜像慢，先给 Docker 配置镜像加速。
+- 构建时 npm 走国内镜像：在 `.env` 设置 `NPM_REGISTRY=https://registry.npmmirror.com`，然后照常运行 `docker compose up -d --build`。留空使用 npm 官方源。
+- Docker 镜像加速站也可能很慢。先检查仓库认证和实际镜像层下载；Docker Desktop 使用的系统代理与终端的代理环境变量不一定相同。
 - 海外信源抓不到时，在 `.env` 里设置 `EGRESS_PROXY_URL`：抓信源、图片和模型榜数据时走这个代理，调用模型接口不走。
 - 对外提供网站服务需要先完成 ICP 备案，备案号填在 `industry/site.ts` 的 `icp`。
+
+如果加速站卡住，可以取消当前拉取，使用官方仓库的完整地址下载，再打上 Compose 使用的本地标签：
+
+```bash
+docker pull registry-1.docker.io/library/postgres:17-alpine
+docker tag registry-1.docker.io/library/postgres:17-alpine postgres:17-alpine
+docker pull registry-1.docker.io/library/node:24-trixie-slim
+docker tag registry-1.docker.io/library/node:24-trixie-slim node:24-trixie-slim
+docker compose up -d --build
+```
+
+认证、仓库和镜像层可能使用不同域名；分流规则应覆盖实际下载地址。官方域名清单见 [Docker Desktop allow-list](https://docs.docker.com/desktop/setup/allow-list/)。本次排查涉及 `auth.docker.io`、`registry-1.docker.io`、`production.cloudfront.docker.com`；地址能打开不代表大镜像层的传输速度正常。
 
 ### 配域名和 HTTPS
 
