@@ -1,17 +1,16 @@
 // The site's wordmark from industry/brand and a small ring mark used as the loader.
 import { SITE } from "@aihot/industry/site";
-import icon from "@aihot/industry/brand/logo.svg?url&no-inline";
-import wordmark from "@aihot/industry/brand/wordmark.png?url&no-inline";
+import wordmark from "@aihot/industry/brand/wordmark.svg?url&no-inline";
 
 export function Wordmark({ size = 22, className = "" }: { size?: number; className?: string }) {
+  const width = Math.max(144, size * 6);
   return (
-    <span className={`inline-flex max-w-full items-center ${className}`} style={{ gap: size / 4 }} role="img" aria-label={`${SITE.name}，${SITE.tagline}`}>
-      <img src={icon} alt="" width={size * 1.5} height={size * 1.5} className="shrink-0" />
-      <span className="min-w-0" aria-hidden="true">
-        <img src={wordmark} alt="" width={size * 4.25} height={size * 4.25 / 3} className="block max-w-full object-contain dark:brightness-0 dark:invert" />
-        <span className="block whitespace-nowrap font-normal tracking-[0.04em] text-ink-3" style={{ fontSize: size * 0.4, lineHeight: 1.2, paddingLeft: size / 3 }}>{SITE.tagline}</span>
-      </span>
-    </span>
+    <svg viewBox="0 0 258 84" width={width} height={width * 84 / 258} className={`block h-auto max-w-full ${className}`} role="img" aria-label={`${SITE.name}，${SITE.tagline}`}>
+      <use href={`${wordmark}#icon`} />
+      <use href={`${wordmark}#ink`} className="fill-ink" />
+      <use href={`${wordmark}#accent`} className="fill-accent" />
+      <use href={`${wordmark}#tagline`} className="fill-ink-3" />
+    </svg>
   );
 }
 
