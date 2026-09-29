@@ -1,3 +1,5 @@
+import { useEffect, useId, useRef, useState, type CSSProperties, type SyntheticEvent } from "react";
+import { createPortal } from "react-dom";
 import type { LbConfidence, LbStability } from "@aihot/contracts/leaderboard";
 import { LB_CONFIDENCE_LABELS } from "@aihot/contracts/leaderboard";
 
@@ -11,8 +13,31 @@ function rangeText(s: LbStability): string {
   return s.from === s.to ? `第 ${s.from} 名` : `${s.from}—${s.to} 名`;
 }
 
+function position(r: DOMRect): CSSProperties {
+  return { left: Math.max(8, Math.min(r.left + r.width / 2 - 112, document.documentElement.clientWidth - 232)), ...(r.top > 160 ? { bottom: window.innerHeight - r.top + 8 } : { top: r.bottom + 8 }) };
+}
+
 /** Confidence as a dotted label. On desktop, hovering a sensitive ranking shows its scenario rank range. */
 export function EvidenceBadge({ confidence, stability, rank }: { confidence: LbConfidence; stability: LbStability | null; rank: number }) {
+  const id = useId();
+  const anchor = useRef<HTMLSpanElement>(null);
+  const [at, setAt] = useState<CSSProperties | null>(null);
+  const open = at !== null;
+  useEffect(() => {
+    if (!open) return;
+    const update = () => { if (anchor.current) setAt(position(anchor.current.getBoundingClientRect())); };
+    const close = () => setAt(null);
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
+  const show = (e: SyntheticEvent<HTMLSpanElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setAt(position(r));
+  };
   const label = LB_CONFIDENCE_LABELS[confidence];
   const chip = (
     <small className="inline-flex items-center gap-1.5 text-[11px] leading-[17px] text-ink-4">
@@ -23,12 +48,14 @@ export function EvidenceBadge({ confidence, stability, rank }: { confidence: LbC
   if (!stability) return chip;
   const moved = stability.from !== stability.to || stability.unavailable > 0 || stability.incomplete > 0;
   return (
-    <span className="group/tip relative inline-flex" tabIndex={moved ? 0 : -1}>
+    <span ref={anchor} className="inline-flex" tabIndex={moved ? 0 : -1} aria-describedby={moved && at ? id : undefined} onMouseEnter={moved ? show : undefined} onMouseLeave={() => setAt(null)} onFocus={moved ? show : undefined} onBlur={() => setAt(null)} onKeyDown={(e) => { if (e.key === "Escape") setAt(null); }}>
       {chip}
-      {moved && (
+      {moved && at && createPortal(
         <span
+          id={id}
           role="tooltip"
-          className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden w-56 -translate-x-1/2 rounded-tile border border-line bg-raised p-3 text-left text-[12px] leading-relaxed text-ink-2 opacity-0 shadow-[var(--shadow-pop)] transition-opacity duration-150 group-hover/tip:opacity-100 group-focus/tip:opacity-100 md:block"
+          style={at}
+          className="pointer-events-none fixed z-[60] w-56 rounded-tile border border-line bg-raised p-3 text-left text-[12px] leading-relaxed text-ink-2 shadow-[var(--shadow-pop)]"
         >
           <span className="block text-[11px] text-ink-4">名次浮动范围</span>
           <span className="num block text-[15px] font-semibold text-ink">{rangeText(stability)}</span>
@@ -37,7 +64,7 @@ export function EvidenceBadge({ confidence, stability, rank }: { confidence: LbC
             {stability.unavailable > 0 && ` ${stability.unavailable} 个情景下参评证据不足。`}
             不是置信区间。
           </span>
-        </span>
+        </span>, document.body
       )}
     </span>
   );

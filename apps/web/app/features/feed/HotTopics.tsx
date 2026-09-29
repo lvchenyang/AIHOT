@@ -53,7 +53,7 @@ export function HotTopics({ entries }: { entries: HotStripEntry[] }) {
               <span className={`num text-center leading-none ${RANK_COLOR[i] ?? "text-[14px] font-bold text-rank-rest"}`}>{e.rank}</span>
               <span className="line-clamp-2 min-w-0 text-[14px] font-semibold leading-[1.5] text-ink transition-colors group-hover:text-accent lg:line-clamp-1">{e.title}</span>
               <span className="hidden justify-end sm:flex">
-                <Faces participants={e.participants} total={e.participantCount} size={20} />
+                <Faces interactive={false} participants={e.participants} total={e.participantCount} size={20} />
               </span>
               <span className="flex items-center justify-end gap-2.5 sm:contents">
                 <span className="whitespace-nowrap text-right text-[12.5px] text-ink-4" title="热度指数">

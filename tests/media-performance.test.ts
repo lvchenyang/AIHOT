@@ -66,9 +66,9 @@ test("failed originals are not retried for every mode", async () => {
 
 test("site media exposes responsive previews and full lightboxes while RSS retains thumb images", () => {
   const row = { zh_text: null, x_post: { media: [{ url: "https://example.org/1.png" }, { url: "https://example.org/2.png", poster: "https://example.org/poster.png" }] } };
-  assert.ok(xView(row, true)!.media.every((m) => m.url.includes("mode=card")));
+  assert.ok(xView(row, true)!.media.every((m) => m.url.includes("mode=card") && m.fullUrl?.includes("mode=full")));
   assert.ok(xView(row, true)!.media[1]!.poster!.includes("mode=card"));
-  assert.ok(xView(row)!.media.every((m) => m.url.includes("mode=thumb")));
+  assert.ok(xView(row)!.media.every((m) => m.url.includes("mode=thumb") && m.fullUrl === undefined));
   assert.ok(xView(row, false, true)!.media.every((m) => m.url.includes("mode=full") && m.srcSet?.includes("mode=image-720")));
   row.x_post.media[1]!.url = "javascript:invalid";
   const single = xView(row, true)!.media;
