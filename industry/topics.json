@@ -129,12 +129,12 @@
     },
     {
       "slug": "domestic-lng",
-      "name": "国内液厂",
+      "name": "液厂与液化项目",
       "group": "field",
       "tags": [
         "液厂"
       ],
-      "definition": "中国大陆液厂的新建、审批、试产投产、检修与复产。重点保留省市县、项目主体和实际进度。",
+      "definition": "国内外天然气液化工厂与液化项目的建设、产能和运行进展，关注具体所在地和实际阶段。",
       "related": [
         "wellhead",
         "prices"
@@ -228,13 +228,14 @@
     },
     {
       "slug": "terminals",
-      "name": "接收站与管网",
+      "name": "接收站、管网与储气库",
       "group": "field",
       "tags": [
         "接收站",
-        "管道气"
+        "管网",
+        "储气库"
       ],
-      "definition": "接收站建设、检修、卸船、装车与管输变化。",
+      "definition": "跟进接收站、天然气管网和储气库的建设、检修与运行。",
       "related": [
         "shipping",
         "supply-demand"
@@ -286,13 +287,20 @@
     },
     {
       "slug": "startups",
-      "name": "投产与复产",
+      "name": "项目建设与运行",
       "group": "field",
       "tags": [
+        "审批",
+        "开工",
+        "试产",
+        "正式投产",
+        "检修",
+        "停产",
+        "复产",
         "试产投产",
         "检修停复产"
       ],
-      "definition": "具体液厂、井口与设施的开停工变化。",
+      "definition": "跟进审批、开工、试产、正式投产、检修、停产和复产；历史合并标签不能证明具体阶段。",
       "related": [
         "domestic-lng",
         "wellhead"
@@ -327,6 +335,30 @@
       ],
       "definition": "价格口径、成本计算、运输、结算和交付规则。",
       "related": []
+    },
+    {
+      "slug": "price-drivers",
+      "name": "影响价格",
+      "group": "field",
+      "definition": "跨分类关注供需、库存、天气、运费和国际风险等价格影响因素；收录相关事实，不代表气价必然涨跌。",
+      "related": [
+        "prices",
+        "supply-demand",
+        "weather",
+        "geopolitics"
+      ],
+      "tags": [
+        "供需数据",
+        "库存",
+        "进口出口",
+        "气电需求",
+        "天气",
+        "运费",
+        "制裁关税",
+        "检修",
+        "停产",
+        "复产"
+      ]
     }
   ]
 }
