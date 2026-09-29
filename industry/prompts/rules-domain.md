@@ -1,45 +1,10 @@
+【LNG 与天然气写作规则】
 
-【AI 领域翻译规则 — 本平台 100% 是 AI/ML/LLM 行业内容，严格遵守】
-
-1. 歧义默认值：以下词在中文有非 AI 歧义，**一律按 AI 含义翻译**：
-   - LLM = 大语言模型（绝不译"法学硕士"/"Master of Laws"）
-   - Token / tokens = 模型 token（保留英文；绝不译"代币"/"令牌"）
-   - Transformer = Transformer 架构（保留英文；不译"变压器"）
-   - Diffusion = 扩散模型（AI 生成，不是物理扩散）
-   - Agent / Agentic = AI 智能体 / 智能体的（不译"代理人"/"中介"）
-   - Alignment = 对齐（AI 安全语境）
-   - Inference = 推理（模型生成）
-   - Reasoning = 推理（注意：与 inference 都译"推理"，必要时用"链式推理"区分 CoT；reasoning model 指 o1/o3/R1 这类思考型模型）
-   - Embedding = 嵌入向量（也可保留英文）
-   - Distillation = 知识蒸馏
-   - Hallucination = 模型幻觉
-   - Fine-tune / Fine-tuning = 微调
-   - Pretrain / Pretraining = 预训练
-   - Context window = 上下文窗口
-   - Prompt = 提示词
-   - Skill / Skills = 技能（Claude 等 Agent 框架的能力包，不译"特长"）
-
-2. 以下专有名词**一律保留英文原文**，不翻译不加中文括注：
-   - AI 公司：OpenAI / Anthropic / Google DeepMind / xAI / Meta AI / Mistral / DeepSeek / Cohere / HuggingFace（HF）/ Runway / ElevenLabs / Suno / Pika / Midjourney / Perplexity
-   - 模型族（举例 + 通用规则）：GPT / Claude / Gemini / Llama / Qwen / Grok / o 系列 / DeepSeek / Mistral / Mixtral / Phi / Sora / Veo / Imagen
-     **规则**：任何大模型族名、产品代号一律保留英文
-   - 模型版本号（举例 + 通用规则）：GPT-5 / Claude 4.7 / Claude Sonnet 4.6 / Llama 4 / Gemini 3 / o3 / o4 / DeepSeek-V4 / Qwen3.7
-     **规则**：版本号一字不改（包括字母数字后缀如 4o / 4.7 / 405B / V4 / R1），绝不"翻译性扩写"（不要把 "405B" 译成 "4050 亿"，不要把 "V4" 译成 "第 4 代"）
-   - 技术缩写（举例 + 通用规则）：LLM / RAG / RLHF / DPO / LoRA / QLoRA / PEFT / MoE / CoT / ReAct / KV cache / SOTA / AGI / MCP / ADK / NPU / GPU / TPU
-     **规则**：任何 2-5 字母的全大写缩写，默认按 AI/ML 含义保留英文
-   - 评测基准（举例 + 通用规则）：MMLU / GPQA / HumanEval / SWE-bench / SWE-bench Verified / AIME / HLE / ARC-AGI / ARC-AGI 2 / MT-Bench / Chatbot Arena / Aider Polyglot / LiveCodeBench
-     **规则**：以 -bench / -eval 结尾或全大写的评测名一律保留英文
-   - AI 工具/产品：Cursor / Copilot / Codex / Aider / Devin / Cline / Claude Code / Windsurf / Zed / v0 / Bolt / Lovable / Replit Agent
-   - Agent 框架：LangChain / LangGraph / LlamaIndex / CrewAI / AutoGen / Pydantic AI / Vercel AI SDK / DSPy
-   - 推理/部署：Ollama / vLLM / SGLang / TensorRT / Triton / CUDA / ROCm
-   - 通用技术：API / SDK / CLI / IDE / SaaS / CDN / SSO / OAuth / JWT / WebSocket / SSE / gRPC
-
-3. 中国厂商**优先用官方中文品牌名**（首次出现可双标"千问（Qwen3）"，后续选一种保持一致）：
-   - 千问（Qwen）/ 文心一言 / 智谱（GLM）/ 月之暗面（Kimi）/ 深度求索（DeepSeek）/ 阶跃星辰（Step）/ 零一万物（Yi）/ 百川 / 豆包（字节）/ 混元（腾讯）/ 可灵（Kling，快手）/ 即梦（Jimeng，字节）/ MiniMax（不译）/ 美团 LongCat / 昆仑万维 Skywork / 面壁 MiniCPM / 华为昇腾 / 寒武纪
-
-4. 代码 / 命令 / URL / 数字单位 **一字不改**保留：
-   - 反引号代码 `code` 不翻译
-   - 命令如 /code-review、pip install、npm run 不译（不要译"代码审查"）
-   - URL 原样
-   - 数字+单位：8k context / 175B params / 3.5x speedup / $3 per M tokens / 99.9%
-   - 金额、参数量、比例、区间必须保留原文的阿拉伯数字和单位；不要把 $10B-$100B 改写成“数百亿至数千亿美元”等中文数量词
+1. LNG 为液化天然气，LPG 为液化石油气，CNG 为压缩天然气，三者不能混用。natural gas 译天然气；gas 按上下文判断，不把汽油或气体泛称自动译成天然气。train 在液化项目中指生产线；wellhead 指井口；feedgas 指原料气；upstream 指上游。FSRU 为浮式储存再气化装置，FLNG 为浮式液化天然气设施。
+2. JKM、TTF、Henry Hub 是不同市场基准，保留原名和交易月份。不能把期货结算价当现货、把指数点数当货币价格、把进口成本当国内液厂出厂价。FOB、CIF、DES 等交付术语保留，按原文表述，不自行改成另一条款。
+3. 报价保留报价日/生效日、地区、报价主体、币种、单位（元/吨、元/立方米、美元/MMBtu、欧元/MWh 等）、含税与否、出厂/挂牌/成交/到岸/送到口径，以及涨跌的比较日期。原文未说明的重要口径可写未披露；不得自动填充、换算或推测。缺密度、热值、温压、汇率时不可换算单位。运费保留路线、船型/车型和计费单位。
+4. 项目保留省、市、县、园区、项目/液厂名称、运营主体、井号、发布日期与事件发生日期。规划、签约、环评、获批、开工、试气、试产、首车出液、投产、商业供货、达产、检修、复产是不同阶段，不可相互升级。试气流量、设计产能、实际产量、储量和可外销量各自独立；接收站储罐容积不等于液化产能。
+5. 战争、制裁、天气、汇率等对气价的传导，区分已发生事实、来源观点、预测和可能性。只能复述来源支持的链条；没有价格证据不写“导致大涨”，不提供必涨必跌或买卖喊单。法律或政策保留宣布、通过、生效日期与适用地区，不能互相替代。
+6. 中国机构优先使用准确中文名；QatarEnergy 可写卡塔尔能源，Shell 可写壳牌，TotalEnergies 可写道达尔能源。没有证据不把子公司、独立液厂或交易商归给某集团。标题摘要中的公司必须有原文或已核验发布方依据。
+7. URL、合同号、井号、数字、正负号、范围和单位忠实保留；不得编造报价、气源联系人、库存、预计投产日期或运输路线。不用模型知识补新闻事实。
+8. 政策保留发文机关、文件名、文号、适用地区和对象，分别说明公布日期、生效日期、意见征集截止日期。征求意见稿、正式发布、施行、修订、废止与政策解读不能混用；地方规定不写成全国适用，媒体解读不写成官方新规。原文未交代的生效状态、豁免和过渡安排不推断。

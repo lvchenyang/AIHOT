@@ -1,139 +1,88 @@
-// 这个行业的分类体系：类别、标签词表、公司（主体）名录，以及防止张冠李戴的身份词典。
-// 模型按这里的词表打标签，主题页（topics.json）按标签归类，筛选栏按类别分组。
-// 换行业时：类别的 key 会出现在网址里（/all?category=…），上线后就不要再改；标签和名录可以随时增减。
-
-/**
- * 网页上的类别（筛选栏、卡片角标、RSS 分类订阅）。key 是网址和接口里的身份，上线后不要改。
- * section 是日报里的分节标题（几个类别可以共用一节，按这里的顺序排）；guide 告诉模型怎么归类。
- * 没归上类的资料在日报里放进第一个 key 为 industry 的类别所在的节（没有就放最后一节）。
- */
+// LNG 与天然气行业词表。分类已由用户确认；key 上线后保持稳定。
 export const CATEGORIES = [
-  { key: "ai-models", label: "模型", section: "模型发布/更新", guide: "新模型、模型版本、权重开放、模型能力与价格变化的发布与评测结果" },
-  { key: "ai-products", label: "产品", section: "产品发布/更新", guide: "AI 产品、功能、应用、工具、API 与平台的发布和更新" },
-  { key: "industry", label: "行业", section: "行业动态", guide: "公司经营、融资并购、人事、合作、诉讼、监管与政策、市场与基础设施" },
-  { key: "paper", label: "论文", section: "论文研究", guide: "研究论文、技术报告、基准与数据集" },
-  { key: "tip", label: "教程", section: "技巧与观点", guide: "教程、实践经验、使用技巧、提示词与工具用法、深度技术讲解" },
-  { key: "opinion", label: "观点", section: "技巧与观点", guide: "人物观点、评论、分析、访谈、现象与趋势讨论" },
+  { key: "prices", label: "价格行情", section: "价格行情", guide: "LNG 出厂、接收站挂牌、送到、进口到岸价格，以及 JKM、TTF、Henry Hub 和运价的报价与变动；保留日期与口径" },
+  { key: "domestic-supply", label: "国内气源与液厂", section: "国内气源与液厂", guide: "中国大陆液厂、井口、气田、页岩气、煤层气的发现、审批、建设、试产、投产、检修、停复产；保留省市县、项目名和实际阶段" },
+  { key: "geopolitics", label: "国际局势", section: "国际局势", guide: "与天然气供应或贸易有具体关联的冲突、制裁、关税、出口限制和外交变化；不把可能影响写成已发生涨跌" },
+  { key: "logistics", label: "运输与接收站", section: "运输与接收站", guide: "LNG 船舶、航线、运费、港口、接收站、槽车、道路限行、管输和储运设施；具体停航、堵港、检修与运力变化" },
+  { key: "supply-demand", label: "供需与库存", section: "供需与库存", guide: "国内外产量、消费、进口出口、库存、气电需求、天气、海外液化产能与检修，及有依据的价格驱动分析" },
+  { key: "policy", label: "政策", section: "政策", guide: "天然气监管、价格机制、市场准入、管网公平开放、保供储备、安全环保、税费补贴及地方实施细则；包含征求意见、正式文件和政策解读，保留发文机关、文号、适用地区与生效时间。单个项目审批归国内气源与液厂；具体采购成交归贸易交易；国际冲突制裁归国际局势" },
+  { key: "industry", label: "贸易交易", section: "贸易交易", guide: "采购招标、成交、长协、合同、并购和交易平台业务公告及其他行业事项；政府监管和制度变化归政策，国际冲突制裁归国际局势" },
 ] as const;
 
-/**
- * 内容理解一步给每篇资料判的“内容类型”（写在 prompts/content-understanding.md 里，改了类型要同步改那份提示词）。
- * 评分提示词（prompts/selection-score.md）按类型给五个维度不同的权重。
- */
-export const ITEM_TYPES = ["model_release", "product_launch", "tool_or_prompt", "research_paper", "industry_event", "opinion_analysis", "tutorial_explainer"] as const;
-
-// ── 标签词表 ────────────────────────────────────────────────────────────────────────────
-
-/** 每篇资料的第一个标签必须是这些“分类标签”之一。 */
-export const CATEGORY_TAGS = [
-  "产品更新", "模型发布", "论文/研究", "开源/仓库", "教程/实践", "现象/趋势", "大佬观点", "评测/基准", "安全/对齐", "行业动态", "政策/监管",
-  "非AI/通用工具", "其他",
-] as const;
-
-/** 可选的主题标签。 */
+// 与 selection-score.md 的七类权重表、content-understanding.md 同步。
+export const ITEM_TYPES = ["price_update", "supply_project", "logistics_update", "market_report", "industry_event", "opinion_analysis", "tutorial_explainer"] as const;
+export const CATEGORY_TAGS = ["价格行情", "气源项目", "运输物流", "供需数据", "国际局势", "政策监管", "贸易交易", "市场分析", "贸易实务", "行业动态", "其他"] as const;
 export const TOPIC_TAGS = [
-  "Agent", "编码", "推理", "多模态", "语音", "视频", "图像生成", "RAG", "端侧", "数据/训练", "搜索", "部署/工程", "开源生态", "具身智能", "MCP/工具调用",
+  "LNG", "管道气", "液厂", "井口", "气田", "页岩气", "煤层气", "试产投产", "检修停复产", "接收站", "槽车", "LNG船", "运费", "航道", "长协", "现货", "出厂价", "到岸价", "送到价", "JKM", "TTF", "Henry Hub", "库存", "进口出口", "气电需求", "天气", "制裁关税", "中国大陆", "华北", "西北", "西南", "华东", "华南", "东北", "中东", "欧洲", "美国", "亚太",
 ] as const;
+export const ENTITY_TAGS = ["中国石油", "中国石化", "中国海油", "国家管网", "延长石油", "广汇能源", "新奥", "卡塔尔能源", "Cheniere", "Shell", "TotalEnergies", "EIA", "IEA", "国家能源局"] as const;
 
-/** 可选的实体标签（公司、机构、平台）。 */
-export const ENTITY_TAGS = ["OpenAI", "Anthropic", "DeepSeek", "DeepMind", "Google", "Meta", "Microsoft", "xAI", "Hugging Face", "GitHub", "arXiv"] as const;
-
-/** 模型常写的近义词，统一成词表里的写法。 */
 export const TAG_SYNONYMS: Readonly<Record<string, string>> = {
-  "教程/玩法": "教程/实践", "技巧/最佳实践": "教程/实践", "合作/生态": "行业动态", "融资/收购": "行业动态", "公司动态": "行业动态",
-  合作: "行业动态", 生态: "行业动态", 融资: "行业动态", 收购: "行业动态", 投资: "行业动态", 并购: "行业动态",
-  政策: "政策/监管", 监管: "政策/监管", 法规: "政策/监管", 安全: "安全/对齐", 对齐: "安全/对齐",
-  论文: "论文/研究", 研究: "论文/研究", paper: "论文/研究", papers: "论文/研究",
-  "open-source": "开源/仓库", 开源: "开源/仓库", 仓库: "开源/仓库", repo: "开源/仓库",
-  教程: "教程/实践", 玩法: "教程/实践", 指南: "教程/实践", 技巧: "教程/实践", 最佳实践: "教程/实践", 实践: "教程/实践",
-  产品: "产品更新", 更新: "产品更新", 发布: "模型发布", 模型: "模型发布", 趋势: "现象/趋势", 现象: "现象/趋势", 观点: "大佬观点",
-  视频生成: "视频", 非ai: "非AI/通用工具", "non-ai": "非AI/通用工具", 通用工具: "非AI/通用工具", 工程工具: "非AI/通用工具",
-  安全扫描: "非AI/通用工具", devops: "非AI/通用工具", 行业: "行业动态", 动态: "行业动态",
+  液化天然气: "LNG", lng: "LNG", 工厂: "液厂", 液化厂: "液厂", 气井: "井口", 新井: "井口",
+  投产: "试产投产", 试生产: "试产投产", 停产: "检修停复产", 复产: "检修停复产", 检修: "检修停复产",
+  价格: "价格行情", 报价: "价格行情", 涨跌: "价格行情", 运输: "运输物流", 航运: "运输物流",
+  政策: "政策监管", 监管: "政策监管", 法规: "政策监管", 招标: "贸易交易", 成交: "贸易交易", 采购: "贸易交易",
+  分析: "市场分析", 观点: "市场分析", 教程: "贸易实务", 指南: "贸易实务", 行业: "行业动态",
+  中石油: "中国石油", cnpc: "中国石油", petrochina: "中国石油", 中石化: "中国石化", sinopec: "中国石化",
+  中海油: "中国海油", cnooc: "中国海油", pipechina: "国家管网", qatarenergy: "卡塔尔能源", 壳牌: "Shell", 道达尔能源: "TotalEnergies",
 };
-
-/** 模型漏了分类标签时，按内容类型补一个。 */
 export const CATEGORY_BY_ITEM_TYPE: Readonly<Record<string, string>> = {
-  model_release: "模型发布", product_launch: "产品更新", tool_or_prompt: "教程/实践", research_paper: "论文/研究",
-  industry_event: "行业动态", opinion_analysis: "大佬观点", tutorial_explainer: "教程/实践",
+  price_update: "价格行情", supply_project: "气源项目", logistics_update: "运输物流", market_report: "供需数据",
+  industry_event: "行业动态", opinion_analysis: "市场分析", tutorial_explainer: "贸易实务",
 };
 
-// ── 公司与主体 ──────────────────────────────────────────────────────────────────────────
-
-/** 公司主题：id → 显示名、卡片上显示的标签（null 表示只用 entity:<id> 归类）、别名。 */
 export const ENTITIES: Record<string, { name: string; displayTag: string | null; aliases: string[] }> = {
-  openai: { name: "OpenAI", displayTag: "OpenAI", aliases: ["OpenAI", "ChatGPT", "Sora", "Codex", "GPT"] },
-  anthropic: { name: "Anthropic", displayTag: "Anthropic", aliases: ["Anthropic", "Claude"] },
-  google: { name: "Google", displayTag: "Google", aliases: ["Google", "DeepMind", "Gemini", "谷歌"] },
-  deepseek: { name: "DeepSeek", displayTag: "DeepSeek", aliases: ["DeepSeek", "深度求索"] },
-  qwen: { name: "千问 Qwen", displayTag: null, aliases: ["Qwen", "通义", "阿里"] },
-  kimi: { name: "Kimi / 月之暗面", displayTag: null, aliases: ["Kimi", "月之暗面", "Moonshot"] },
-  minimax: { name: "MiniMax", displayTag: null, aliases: ["MiniMax", "海螺"] },
-  zhipu: { name: "智谱 GLM", displayTag: null, aliases: ["智谱", "GLM", "Z.ai"] },
-  xai: { name: "xAI", displayTag: "xAI", aliases: ["xAI", "Grok"] },
-  meta: { name: "Meta", displayTag: "Meta", aliases: ["Meta", "Llama"] },
-  microsoft: { name: "Microsoft", displayTag: "Microsoft", aliases: ["Microsoft", "微软", "Copilot"] },
-  nvidia: { name: "NVIDIA", displayTag: null, aliases: ["NVIDIA", "英伟达"] },
-  "hugging-face": { name: "Hugging Face", displayTag: "Hugging Face", aliases: ["Hugging Face"] },
-  cursor: { name: "Cursor", displayTag: null, aliases: ["Cursor", "Anysphere"] },
-  openrouter: { name: "OpenRouter", displayTag: null, aliases: ["OpenRouter"] },
+  cnpc: { name: "中国石油", displayTag: "中国石油", aliases: ["中国石油", "中石油", "CNPC", "PetroChina"] },
+  sinopec: { name: "中国石化", displayTag: "中国石化", aliases: ["中国石化", "中石化", "Sinopec"] },
+  cnooc: { name: "中国海油", displayTag: "中国海油", aliases: ["中国海油", "中海油", "CNOOC"] },
+  pipechina: { name: "国家管网", displayTag: "国家管网", aliases: ["国家管网", "PipeChina"] },
+  yanchang: { name: "延长石油", displayTag: "延长石油", aliases: ["延长石油", "Yanchang Petroleum"] },
+  guanghui: { name: "广汇能源", displayTag: "广汇能源", aliases: ["广汇能源", "Guanghui Energy"] },
+  enn: { name: "新奥", displayTag: "新奥", aliases: ["新奥", "ENN"] },
+  qatarenergy: { name: "卡塔尔能源", displayTag: "卡塔尔能源", aliases: ["卡塔尔能源", "QatarEnergy", "Qatar Petroleum", "Qatargas"] },
+  cheniere: { name: "Cheniere", displayTag: "Cheniere", aliases: ["Cheniere", "切尼尔"] },
+  shell: { name: "Shell", displayTag: "Shell", aliases: ["Shell", "壳牌"] },
+  totalenergies: { name: "TotalEnergies", displayTag: "TotalEnergies", aliases: ["TotalEnergies", "道达尔能源"] },
+  eia: { name: "美国能源信息署", displayTag: "EIA", aliases: ["EIA", "美国能源信息署", "Energy Information Administration"] },
+  iea: { name: "国际能源署", displayTag: "IEA", aliases: ["IEA", "国际能源署", "International Energy Agency"] },
+  nea: { name: "国家能源局", displayTag: "国家能源局", aliases: ["国家能源局", "National Energy Administration"] },
 };
 
-/**
- * 身份词典：摘要和标题里出现的公司，必须在原文里也出现过，否则退回原标题、丢掉摘要（防止模型张冠李戴）。
- * 行业没有这个问题时可以留空数组。
- */
+// 仅匹配明确的机构名，不把“液厂”“井口”或地名误当公司身份。
 export const IDENTITY_LEXICON: ReadonlyArray<{ id: string; name: string; patterns: RegExp[] }> = [
-  { id: "openai", name: "OpenAI", patterns: [/openai|chatgpt|\bgpt-?[o\d]|\bsora\b|\bcodex\b/i] },
-  { id: "anthropic", name: "Anthropic", patterns: [/anthropic|\bclaude\b/i, /\b(?:opus|sonnet|haiku)\s*\d+(?:[.\-]\d+)*\b/i, /\bfable\s*\d+(?:[.\-]\d+)*\b|\bmythos\b/i] },
-  { id: "google", name: "Google / Gemini", patterns: [/google|deepmind|\bgemini\b|notebooklm|\bveo\s?\d|\bAlphaFold\b|\bAMIE\b/i] },
-  { id: "deepseek", name: "DeepSeek", patterns: [/deepseek|深度求索/i] },
-  { id: "xai", name: "xAI / Grok", patterns: [/\bxai\b|\bgrok\b/i] },
-  { id: "meta", name: "Meta / Llama", patterns: [/\bMeta\b/, /\bmeta\s?ai\b|\bllama\b/i] },
-  { id: "microsoft", name: "Microsoft / Copilot", patterns: [/microsoft|copilot|微软/i] },
-  { id: "nvidia", name: "NVIDIA", patterns: [/nvidia|英伟达|\bnemotron\b|\bnemo\b|\bblackwell\b|\brubin(?:\s+ultra)?\b|\bcuda\b/i] },
-  { id: "qwen", name: "千问 Qwen", patterns: [/\bqwen|通义|千问/i] },
-  { id: "hugging-face", name: "Hugging Face", patterns: [/hugging\s?face/i] },
-  { id: "cursor", name: "Cursor", patterns: [/\bCursor\b/] },
-  { id: "kimi", name: "Kimi / 月之暗面", patterns: [/\bkimi\b|月之暗面|\bmoonshot\s?ai\b/i] },
-  { id: "openrouter", name: "OpenRouter", patterns: [/openrouter/i] },
-  { id: "minimax", name: "MiniMax", patterns: [/minimax/i] },
-  { id: "zhipu", name: "智谱 GLM", patterns: [/智谱|\bglm-?[4-9]/i] },
-  { id: "hunyuan", name: "腾讯混元", patterns: [/混元|hunyuan/i] },
-  { id: "doubao", name: "字节豆包", patterns: [/豆包|doubao|字节跳动|bytedance/i] },
-  { id: "mistral", name: "Mistral", patterns: [/mistral/i] },
-  { id: "perplexity", name: "Perplexity", patterns: [/\bPerplexity\b/] },
-  { id: "runway", name: "Runway", patterns: [/\brunway\b/i] },
-  { id: "suno", name: "Suno", patterns: [/\bsuno\b/i] },
-  { id: "midjourney", name: "Midjourney", patterns: [/midjourney/i] },
-  { id: "stability-ai", name: "Stability AI", patterns: [/stability\s?ai/i] },
-  { id: "elevenlabs", name: "ElevenLabs", patterns: [/eleven\s?labs/i] },
-  { id: "vllm", name: "vLLM", patterns: [/\bvllm\b/i] },
-  { id: "ollama", name: "Ollama", patterns: [/\bollama\b/i] },
-  { id: "windsurf", name: "Windsurf", patterns: [/windsurf/i] },
-  { id: "devin", name: "Devin", patterns: [/\bdevin\b/i] },
-  { id: "manus", name: "Manus", patterns: [/\bmanus\b/i] },
-  { id: "apple", name: "Apple AI", patterns: [/\bapple\s?(intelligence|silicon|ai)\b|苹果(智能|\s?AI)/i] },
-  { id: "amazon", name: "Amazon / AWS", patterns: [/amazon|\baws\b|亚马逊/i] },
-  { id: "baidu", name: "百度文心", patterns: [/百度|baidu|文心|\bernie\s?bot\b/i] },
+  { id: "cnpc", name: "中国石油", patterns: [/中国石油(?!化工)|中石油|\bCNPC\b|\bPetroChina\b/i] },
+  { id: "sinopec", name: "中国石化", patterns: [/中国石化|中国石油化工|中石化|\bSinopec\b/i] },
+  { id: "cnooc", name: "中国海油", patterns: [/中国海油|中国海洋石油|中海油|\bCNOOC\b/i] },
+  { id: "pipechina", name: "国家管网", patterns: [/国家管网|国家石油天然气管网|\bPipeChina\b/i] },
+  { id: "yanchang", name: "延长石油", patterns: [/延长石油|\bYanchang Petroleum\b/i] },
+  { id: "guanghui", name: "广汇能源", patterns: [/广汇能源|\bGuanghui Energy\b/i] },
+  { id: "enn", name: "新奥", patterns: [/新奥|\bENN\b/i] },
+  { id: "qatarenergy", name: "卡塔尔能源", patterns: [/卡塔尔能源|\bQatarEnergy\b|\bQatar Petroleum\b|\bQatargas\b/i] },
+  { id: "cheniere", name: "Cheniere", patterns: [/\bCheniere\b|切尼尔/i] },
+  { id: "shell", name: "Shell", patterns: [/\bShell\b|壳牌/i] },
+  { id: "totalenergies", name: "TotalEnergies", patterns: [/\bTotalEnergies\b|道达尔能源/i] },
+  { id: "eia", name: "美国能源信息署", patterns: [/\bEIA\b|美国能源信息署|Energy Information Administration/i] },
+  { id: "iea", name: "国际能源署", patterns: [/\bIEA\b|国际能源署|International Energy Agency/i] },
+  { id: "nea", name: "国家能源局", patterns: [/国家能源局|National Energy Administration/i] },
 ];
-
-/** 这些域名上的文章，发布方就是对应的公司（托管平台如 GitHub、arXiv 不算）。 */
 export const PUBLISHER_DOMAINS: ReadonlyArray<{ entityId: string; domains: readonly string[] }> = [
-  { entityId: "openai", domains: ["openai.com"] },
-  { entityId: "anthropic", domains: ["anthropic.com", "claude.com"] },
-  { entityId: "google", domains: ["deepmind.google", "ai.google", "blog.google"] },
-  { entityId: "deepseek", domains: ["deepseek.com"] },
-  { entityId: "xai", domains: ["x.ai"] },
-  { entityId: "meta", domains: ["ai.meta.com"] },
-  { entityId: "microsoft", domains: ["microsoft.com"] },
-  { entityId: "nvidia", domains: ["nvidia.com"] },
-  { entityId: "qwen", domains: ["qwen.ai"] },
-  { entityId: "cursor", domains: ["cursor.com"] },
-  { entityId: "openrouter", domains: ["openrouter.ai"] },
+  { entityId: "cnpc", domains: ["cnpc.com.cn", "petrochina.com.cn"] },
+  { entityId: "sinopec", domains: ["sinopec.com"] },
+  { entityId: "cnooc", domains: ["cnooc.com.cn"] },
+  { entityId: "pipechina", domains: ["pipechina.com.cn"] },
+  { entityId: "qatarenergy", domains: ["qatarenergy.qa", "qatarenergylng.qa"] },
+  { entityId: "cheniere", domains: ["cheniere.com"] },
+  { entityId: "shell", domains: ["shell.com"] },
+  { entityId: "totalenergies", domains: ["totalenergies.com"] },
+  { entityId: "eia", domains: ["eia.gov"] },
+  { entityId: "iea", domains: ["iea.org"] },
+  { entityId: "nea", domains: ["nea.gov.cn"] },
 ];
+export const IDENTITY_CONTEXT_ALIASES: ReadonlyArray<{ entityId: string; pattern: RegExp }> = [];
 
-/** 原文里的这些写法也算提到了对应公司。 */
-export const IDENTITY_CONTEXT_ALIASES: ReadonlyArray<{ entityId: string; pattern: RegExp }> = [
-  { entityId: "meta", pattern: /@AIatMeta\b/i },
-  { entityId: "zhipu", pattern: /\bZhipu(?:\s+AI\b|['’]s\b)/i },
-];
+/** 主题目录分组文案。 */
+export const TOPIC_GROUPS = [
+  { key: "company", name: "公司与机构", blurb: "跟进气源企业、贸易商和行业机构的动态" },
+  { key: "field", name: "关注方向", blurb: "查看价格、液厂、井口、运输、供需和国际风险" },
+  { key: "genre", name: "内容形态", blurb: "按数据报告、市场分析和贸易实务浏览" },
+] as const;

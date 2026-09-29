@@ -1,1 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="116" fill="#13191c"/><path d="M256 92C271 199 313 241 420 256C313 271 271 313 256 420C241 313 199 271 92 256C199 241 241 199 256 92Z" fill="#2ce2e8"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="LNG与天然气热点">
+  <rect width="512" height="512" rx="112" fill="#163e43"/>
+  <path d="M260 66c12 72 91 106 91 199 0 63-41 108-98 108s-99-44-99-101c0-72 54-115 60-155 8 32 19 47 29 55 16-32 20-66 17-106Z" fill="#7fd6bd"/>
+  <path d="M265 215c-2 36-43 57-43 87 0 22 14 37 34 37s35-15 35-37c0-31-19-50-26-87Z" fill="#163e43"/>
+  <path d="M120 407h272" stroke="#f1ebd9" stroke-width="21" stroke-linecap="round"/>
+</svg>

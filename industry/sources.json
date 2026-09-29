@@ -1,144 +1,274 @@
 {
-  "$comment": "示范信源：首次启动时导入（scripts/seed.ts），已存在的不会被覆盖。之后在后台“信源”里增删改。字段说明见 docs/customize.md。",
+  "$comment": "LNG与天然气热点信源。已核验列表和RSS为候选采集配置；外部终端及受限来源停用并隔离。全文展示全部关闭。状态与证据见 docs/lng-sources.md。首次seed新增，已有源不覆盖。",
   "sources": [
     {
-      "id": "rss-openai-news",
-      "name": "OpenAI News",
-      "kind": "rss",
+      "id": "web-lng168",
+      "name": "LNG168 · LNG物联网资讯",
+      "kind": "web_list",
       "config": {
-        "feedUrl": "https://openai.com/news/rss.xml",
+        "url": "https://www.lng168.com/gateWay/news",
+        "itemSelector": ".new-list",
+        "linkSelector": ".news-title a",
+        "titleSelector": ".news-title a",
+        "publishedAtSelector": ".news-date .padding-left-5",
+        "allowUrlPrefixes": [
+          "https://www.lng168.com/gateWay/newsDetail?id="
+        ],
         "_aihot": {
           "initialBackfillLimit": 8
-        }
+        },
+        "sortByPublishedAt": true
       },
-      "tier": "T1",
-      "first_party": true,
-      "owner_entity_id": "openai",
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 120,
       "tags": [
-        "官方"
+        "媒体",
+        "价格",
+        "贸易"
       ],
       "site_fulltext": false,
-      "syndicate_fulltext": false
+      "syndicate_fulltext": false,
+      "enabled": true
     },
     {
-      "id": "rss-google-deepmind",
-      "name": "Google DeepMind",
-      "kind": "rss",
+      "id": "web-china5e-gas",
+      "name": "中国能源网 · 天然气（china5e）",
+      "kind": "web_list",
       "config": {
-        "feedUrl": "https://deepmind.google/blog/rss.xml",
+        "url": "https://www.china5e.com/oil-gas/gas/",
+        "itemSelector": "ul.lista li",
+        "linkSelector": "a",
+        "publishedAtSelector": "span",
+        "allowUrlPrefixes": [
+          "https://www.china5e.com/news/news-"
+        ],
         "_aihot": {
           "initialBackfillLimit": 8
-        }
+        },
+        "sortByPublishedAt": true
       },
-      "tier": "T1",
-      "first_party": true,
-      "owner_entity_id": "google",
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 120,
       "tags": [
-        "官方"
+        "媒体",
+        "国内气源"
       ],
       "site_fulltext": false,
-      "syndicate_fulltext": false
+      "syndicate_fulltext": false,
+      "enabled": true
     },
     {
-      "id": "rss-google-research",
-      "name": "Google Research",
-      "kind": "rss",
+      "id": "web-nengyuanjie-gas",
+      "name": "能源界 · 天然气",
+      "kind": "web_list",
       "config": {
-        "feedUrl": "https://research.google/blog/rss/",
+        "url": "https://www.nengyuanjie.net/tag/145.html",
+        "itemSelector": ".lists .li",
+        "linkSelector": "h3 a",
+        "titleSelector": "h3 a",
+        "allowUrlPrefixes": [
+          "https://www.nengyuanjie.net/article/"
+        ],
+        "detail": {
+          "maxFetches": 12,
+          "publishedAtSelector": ".art-show > .desc p",
+          "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2}\\s+\\d{2}:\\d{2})&nbsp;",
+          "publishedAtAuthoritative": true
+        },
         "_aihot": {
           "initialBackfillLimit": 8
-        }
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "媒体",
+        "国内气源",
+        "国际"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "web-cqpgx-notices",
+      "name": "重庆石油天然气交易中心 · 交易公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.chinacqpgx.com/gsgg/",
+        "itemSelector": "li.notice-item",
+        "linkSelector": "a.media-title",
+        "publishedAtSelector": ".media-time",
+        "allowUrlPrefixes": [
+          "https://www.chinacqpgx.com/gsgg/shownews?id="
+        ],
+        "_aihot": {
+          "initialBackfillLimit": 8
+        },
+        "sortByPublishedAt": true
       },
       "tier": "T1",
       "first_party": true,
-      "owner_entity_id": "google",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "交易所",
+        "采购",
+        "交易"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "rss-lng-industry",
+      "name": "LNG Industry",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.lngindustry.com/rss/lngindustry.xml",
+        "_aihot": {
+          "initialBackfillLimit": 8
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "媒体",
+        "国际",
+        "航运"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "web-kpler-blog",
+      "name": "Kpler · 公开市场分析",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.kpler.com/blog",
+        "itemSelector": ".blog-grid-item:not(.small-blog-grid-item)",
+        "linkSelector": "a.resource_link_block",
+        "titleSelector": "h5.main-blog-heading",
+        "publishedAtSelector": ".resource_grid_date",
+        "publishedAtUtcOffset": "+00:00",
+        "allowUrlPrefixes": [
+          "https://www.kpler.com/blog/"
+        ],
+        "_aihot": {
+          "initialBackfillLimit": 8
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "研究",
+        "国际",
+        "供需"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "web-shpgx-notices",
+      "name": "上海石油天然气交易中心 · 公告（待使用授权）",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.shpgx.com/html/",
+        "itemSelector": "li.news_list",
+        "linkSelector": "a",
+        "allowUrlPrefixes": [
+          "https://www.shpgx.com/html/jygg/",
+          "https://www.shpgx.com/html/hyzq/"
+        ],
+        "detail": {
+          "maxFetches": 12,
+          "publishedAtSelector": ".center_content_tlt_ifo",
+          "publishedAtRegex": "时间[：:]\\s*(\\d{4}-\\d{2}-\\d{2}\\s+\\d{2}:\\d{2}:\\d{2})",
+          "publishedAtAuthoritative": true
+        },
+        "_aihot": {
+          "initialBackfillLimit": 8
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "交易所",
+        "价格",
+        "交易"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "web-nea-gas",
+      "name": "国家能源局 · 石油天然气司",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.nea.gov.cn/sjzz/yqs/",
+        "itemSelector": "li.clearfix:has(h3 a)",
+        "linkSelector": "h3 a",
+        "publishedAtSelector": ".time",
+        "_aihot": {
+          "initialBackfillLimit": 8
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "nea",
       "participation_mode": "editorial",
       "interval_minutes": 120,
       "tags": [
         "官方",
-        "研究"
+        "政策"
       ],
       "site_fulltext": false,
-      "syndicate_fulltext": false
+      "syndicate_fulltext": false,
+      "enabled": true
     },
     {
-      "id": "rss-hugging-face",
-      "name": "Hugging Face Blog",
-      "kind": "rss",
+      "id": "web-nbs-releases",
+      "name": "国家统计局 · 数据发布",
+      "kind": "web_list",
       "config": {
-        "feedUrl": "https://huggingface.co/blog/feed.xml",
+        "url": "https://www.stats.gov.cn/sj/zxfb/",
+        "itemSelector": "li:has(a.pc_1600)",
+        "linkSelector": "a.pc_1600",
+        "publishedAtSelector": "span",
+        "allowUrlPrefixes": [
+          "https://www.stats.gov.cn/sj/zxfb/"
+        ],
         "_aihot": {
           "initialBackfillLimit": 8
-        }
-      },
-      "tier": "T1",
-      "first_party": true,
-      "owner_entity_id": "hugging-face",
-      "participation_mode": "editorial",
-      "interval_minutes": 120,
-      "tags": [
-        "官方",
-        "开源"
-      ],
-      "site_fulltext": false,
-      "syndicate_fulltext": false
-    },
-    {
-      "id": "rss-microsoft-research",
-      "name": "Microsoft Research",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://www.microsoft.com/en-us/research/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
-      "tier": "T1",
-      "first_party": true,
-      "owner_entity_id": "microsoft",
-      "participation_mode": "editorial",
-      "interval_minutes": 120,
-      "tags": [
-        "官方",
-        "研究"
-      ],
-      "site_fulltext": false,
-      "syndicate_fulltext": false
-    },
-    {
-      "id": "rss-nvidia-blog",
-      "name": "NVIDIA Blog",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://blogs.nvidia.com/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
-      "tier": "T1",
-      "first_party": true,
-      "owner_entity_id": "nvidia",
-      "participation_mode": "editorial",
-      "interval_minutes": 120,
-      "tags": [
-        "官方"
-      ],
-      "site_fulltext": false,
-      "syndicate_fulltext": false
-    },
-    {
-      "id": "rss-aws-ml",
-      "name": "AWS Machine Learning Blog",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://aws.amazon.com/blogs/machine-learning/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
+        },
+        "sortByPublishedAt": true
       },
       "tier": "T1",
       "first_party": true,
@@ -147,20 +277,29 @@
       "interval_minutes": 120,
       "tags": [
         "官方",
-        "教程"
+        "价格",
+        "供需"
       ],
       "site_fulltext": false,
-      "syndicate_fulltext": false
+      "syndicate_fulltext": false,
+      "enabled": true
     },
     {
-      "id": "rss-github-ai",
-      "name": "GitHub Blog · AI & ML",
-      "kind": "rss",
+      "id": "web-shaanxi-eia",
+      "name": "陕西生态环境厅 · 项目公示",
+      "kind": "web_list",
       "config": {
-        "feedUrl": "https://github.blog/ai-and-ml/feed/",
+        "url": "https://sthjt.shaanxi.gov.cn/sy/gs/",
+        "itemSelector": "ul.cm-news-list li",
+        "linkSelector": "a",
+        "publishedAtSelector": "span",
+        "allowUrlPrefixes": [
+          "https://sthjt.shaanxi.gov.cn/sy/gs/"
+        ],
         "_aihot": {
           "initialBackfillLimit": 8
-        }
+        },
+        "sortByPublishedAt": true
       },
       "tier": "T1",
       "first_party": true,
@@ -168,20 +307,135 @@
       "participation_mode": "editorial",
       "interval_minutes": 120,
       "tags": [
-        "官方"
+        "官方",
+        "国内气源",
+        "审批"
       ],
       "site_fulltext": false,
-      "syndicate_fulltext": false
+      "syndicate_fulltext": false,
+      "enabled": true
     },
     {
-      "id": "rss-mistral",
-      "name": "Mistral AI",
-      "kind": "rss",
+      "id": "web-nmg-energy",
+      "name": "内蒙古能源局 · 能源动态",
+      "kind": "web_list",
       "config": {
-        "feedUrl": "https://mistral.ai/rss.xml",
+        "url": "https://nyj.nmg.gov.cn/ywdt/nydt1/",
+        "itemSelector": "li:has(h3 a[href])",
+        "linkSelector": "h3 a",
+        "publishedAtSelector": "span",
+        "allowUrlPrefixes": [
+          "https://nyj.nmg.gov.cn/ywdt/nydt1/"
+        ],
         "_aihot": {
           "initialBackfillLimit": 8
-        }
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "政务转载",
+        "国内气源"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "web-cnpc-news",
+      "name": "中国石油新闻中心 · 油气与新能源",
+      "kind": "web_list",
+      "config": {
+        "url": "https://news.cnpc.com.cn/cnpcnews/ktkf/",
+        "itemSelector": "li.ejli",
+        "allowUrlPrefixes": [
+          "https://news.cnpc.com.cn/system/"
+        ],
+        "_aihot": {
+          "initialBackfillLimit": 8
+        },
+        "sortByPublishedAt": true,
+        "linkSelector": "a",
+        "publishedAtSelector": "span.as07"
+      },
+      "tier": "T1_5",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "企业媒体",
+        "井口",
+        "国内气源"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "rss-eia-energy",
+      "name": "EIA · Today in Energy",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.eia.gov/rss/todayinenergy.xml",
+        "_aihot": {
+          "initialBackfillLimit": 8
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "eia",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "官方",
+        "供需",
+        "国际"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "rss-offshore-energy",
+      "name": "Offshore Energy",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.offshore-energy.biz/feed/",
+        "_aihot": {
+          "initialBackfillLimit": 8
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "媒体",
+        "国际",
+        "航运"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "rss-noaa-atlantic",
+      "name": "NOAA NHC · 大西洋飓风通报",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.nhc.noaa.gov/index-at.xml",
+        "_aihot": {
+          "initialBackfillLimit": 8
+        },
+        "sortByPublishedAt": true
       },
       "tier": "T1",
       "first_party": true,
@@ -189,104 +443,186 @@
       "participation_mode": "editorial",
       "interval_minutes": 120,
       "tags": [
-        "官方"
+        "官方",
+        "天气",
+        "美国"
       ],
       "site_fulltext": false,
-      "syndicate_fulltext": false
+      "syndicate_fulltext": false,
+      "enabled": true
     },
     {
-      "id": "rss-bair",
-      "name": "Berkeley AI Research",
-      "kind": "rss",
+      "id": "web-ofac-actions",
+      "name": "美国财政部 OFAC · 制裁公告",
+      "kind": "web_list",
       "config": {
-        "feedUrl": "https://bair.berkeley.edu/blog/feed.xml",
+        "url": "https://ofac.treasury.gov/recent-actions",
+        "itemSelector": ".view-content .views-row",
+        "linkSelector": "a[href^=\"/recent-actions/\"]",
+        "titleSelector": "a[href^=\"/recent-actions/\"]",
+        "allowUrlPrefixes": [
+          "https://ofac.treasury.gov/recent-actions/"
+        ],
         "_aihot": {
           "initialBackfillLimit": 8
-        }
+        },
+        "sortByPublishedAt": true,
+        "publishedAtRegex": ">([A-Z][a-z]+ \\d{1,2}, \\d{4}) -"
       },
       "tier": "T1",
       "first_party": true,
       "owner_entity_id": null,
       "participation_mode": "editorial",
-      "interval_minutes": 180,
+      "interval_minutes": 120,
       "tags": [
-        "研究"
+        "官方",
+        "国际",
+        "制裁"
       ],
       "site_fulltext": false,
-      "syndicate_fulltext": false
+      "syndicate_fulltext": false,
+      "enabled": true
     },
     {
-      "id": "rss-the-verge-ai",
-      "name": "The Verge · AI",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
+      "id": "external-egas",
+      "name": "中国天然气信息终端 E-Gas（待授权接入）",
+      "kind": "external",
+      "config": {},
       "tier": "T2",
       "first_party": false,
       "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 60,
+      "participation_mode": "isolated",
+      "interval_minutes": 120,
       "tags": [
-        "媒体"
+        "待接入"
       ],
       "site_fulltext": false,
-      "syndicate_fulltext": false
+      "syndicate_fulltext": false,
+      "enabled": false
     },
     {
-      "id": "rss-techcrunch-ai",
-      "name": "TechCrunch · AI",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://techcrunch.com/category/artificial-intelligence/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
+      "id": "external-iea",
+      "name": "国际能源署 IEA（待解决访问限制）",
+      "kind": "external",
+      "config": {},
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "iea",
+      "participation_mode": "isolated",
+      "interval_minutes": 120,
+      "tags": [
+        "待接入"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "external-spglobal",
+      "name": "S&P Global Commodity Insights（待授权接入）",
+      "kind": "external",
+      "config": {},
       "tier": "T2",
       "first_party": false,
       "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 60,
+      "participation_mode": "isolated",
+      "interval_minutes": 120,
       "tags": [
-        "媒体"
+        "待接入"
       ],
       "site_fulltext": false,
-      "syndicate_fulltext": false
+      "syndicate_fulltext": false,
+      "enabled": false
     },
     {
-      "id": "rss-ars-technica-ai",
-      "name": "Ars Technica · AI",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://arstechnica.com/ai/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
+      "id": "external-icis",
+      "name": "ICIS（待授权接入）",
+      "kind": "external",
+      "config": {},
       "tier": "T2",
       "first_party": false,
       "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 60,
+      "participation_mode": "isolated",
+      "interval_minutes": 120,
       "tags": [
-        "媒体"
+        "待接入"
       ],
       "site_fulltext": false,
-      "syndicate_fulltext": false
+      "syndicate_fulltext": false,
+      "enabled": false
     },
     {
-      "id": "rss-mit-tech-review-ai",
-      "name": "MIT Technology Review · AI",
-      "kind": "rss",
+      "id": "external-argus",
+      "name": "Argus 阿格斯（待授权接入）",
+      "kind": "external",
+      "config": {},
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "isolated",
+      "interval_minutes": 120,
+      "tags": [
+        "待接入"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "external-kpler-data",
+      "name": "Kpler 船舶与贸易数据（待授权接入）",
+      "kind": "external",
+      "config": {},
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "isolated",
+      "interval_minutes": 120,
+      "tags": [
+        "待接入"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "external-ocpe",
+      "name": "国家能源网 ocpe.com.cn（待解决访问限制）",
+      "kind": "external",
+      "config": {},
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "isolated",
+      "interval_minutes": 120,
+      "tags": [
+        "待接入"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "json-cnenergynews-gas",
+      "name": "中国能源报·中国能源网 · 油气",
+      "kind": "json_list",
       "config": {
-        "feedUrl": "https://www.technologyreview.com/topic/artificial-intelligence/feed",
+        "url": "https://www.cnenergynews.cn/api/list?node=%22%2Ffv2uqd61s%22&offset=0&limit=30",
+        "itemsPath": "list",
+        "titlePaths": [
+          "title"
+        ],
+        "summaryPaths": [
+          "summary"
+        ],
+        "publishedAtPath": "ext_xtime",
+        "publishedAtUnit": "epoch_ms",
+        "externalIdPath": "aid",
+        "urlTemplate": "https://www.cnenergynews.cn/article/{aid}",
         "_aihot": {
           "initialBackfillLimit": 8
-        }
+        },
+        "sortByPublishedAt": true
       },
       "tier": "T2",
       "first_party": false,
@@ -294,95 +630,29 @@
       "participation_mode": "editorial",
       "interval_minutes": 120,
       "tags": [
-        "媒体"
+        "媒体",
+        "油气"
       ],
       "site_fulltext": false,
-      "syndicate_fulltext": false
+      "syndicate_fulltext": false,
+      "enabled": true
     },
     {
-      "id": "rss-the-decoder",
-      "name": "The Decoder",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://the-decoder.com/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
+      "id": "external-gasonline",
+      "name": "燃气在线（待确认网址）",
+      "kind": "external",
+      "config": {},
       "tier": "T2",
       "first_party": false,
       "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 60,
-      "tags": [
-        "媒体"
-      ],
-      "site_fulltext": false,
-      "syndicate_fulltext": false
-    },
-    {
-      "id": "rss-simon-willison",
-      "name": "Simon Willison",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://simonwillison.net/atom/everything/",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
-      "tier": "T2",
-      "first_party": false,
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
+      "participation_mode": "isolated",
       "interval_minutes": 120,
       "tags": [
-        "个人"
+        "待接入"
       ],
       "site_fulltext": false,
-      "syndicate_fulltext": false
-    },
-    {
-      "id": "rss-import-ai",
-      "name": "Import AI",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://importai.substack.com/feed",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
-      "tier": "T2",
-      "first_party": false,
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 180,
-      "tags": [
-        "个人",
-        "周刊"
-      ],
-      "site_fulltext": false,
-      "syndicate_fulltext": false
-    },
-    {
-      "id": "rss-latent-space",
-      "name": "Latent Space",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://www.latent.space/feed",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
-      "tier": "T2",
-      "first_party": false,
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 180,
-      "tags": [
-        "个人"
-      ],
-      "site_fulltext": false,
-      "syndicate_fulltext": false
+      "syndicate_fulltext": false,
+      "enabled": false
     }
   ]
 }

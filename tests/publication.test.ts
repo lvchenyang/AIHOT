@@ -49,7 +49,7 @@ async function article(): Promise<string> {
     sourceId: SOURCE, url: `https://example.com/${T}-${n}`, title: `Test ${n}`, bodyText: BODY, bodyHtml: `<p>${BODY}</p>`, bodyStatus: "ok", via: "fetch", publishedAt: new Date(),
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected)
-            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${`标题${n}-${T}`}, ${`SUMMARY-${n}-${T}`}, '理由', 90, true)`;
+            VALUES (${articleId}, 1, 'rule', 'pass', 'domestic-supply', ${`标题${n}-${T}`}, ${`SUMMARY-${n}-${T}`}, '理由', 90, true)`;
   return articleId;
 }
 
@@ -68,6 +68,24 @@ async function get(url: string, headers: Record<string, string> = {}) {
   const res = await app.inject({ method: "GET", url, headers });
   return { status: res.statusCode, body: res.body, etag: res.headers.etag as string | undefined };
 }
+
+test("policy remains separate from trade in the site, API and RSS", async () => {
+  const policy = await article();
+  const trade = await article();
+  await sql`UPDATE analyses SET category = 'policy', tags = ARRAY['政策监管'] WHERE article_id = ${policy}`;
+  await sql`UPDATE analyses SET category = 'industry', tags = ARRAY['贸易交易'] WHERE article_id = ${trade}`;
+  await publishArticle(policy, released());
+  await publishArticle(trade, released());
+  for (const url of ["/api/site/pool?category=policy", "/api/site/timeline?category=policy", "/api/v1/items?category=policy", "/feed/category/policy.xml"]) {
+    const response = await get(url);
+    assert.equal(response.status, 200, url);
+    assert.ok(response.body.includes(policy), `${url}: policy is present`);
+    assert.ok(!response.body.includes(trade), `${url}: trade is excluded`);
+  }
+  const response = await get("/api/site/pool?category=industry");
+  assert.ok(response.body.includes(trade));
+  assert.ok(!response.body.includes(policy));
+});
 
 test("site reading sends one language while exports retain both, including after withdrawal", async () => {
   const id = await article();
