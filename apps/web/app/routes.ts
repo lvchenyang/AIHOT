@@ -27,6 +27,8 @@ export default [
   route("feedback", "routes/feedback.tsx"),
   route("more", "routes/more.tsx"),
   route("starred", "routes/starred.tsx"),
+  route("login", "routes/member-login.tsx"),
+  route("account", "routes/member-account.tsx"),
   route("agent", "routes/agent.tsx"),
   route("codex-reset", "routes/codex-reset.tsx"),
   route("codex-reset/history/:date", "routes/codex-reset.tsx", { id: "codex-reset-day" }),
@@ -41,6 +43,7 @@ export default [
   route("admin/login", "routes/admin-login.tsx"),
   layout("routes/admin/layout.tsx", { id: "admin-layout" }, [
     route("admin", "routes/admin/index.tsx"),
+    route("admin/users", "routes/admin/users.tsx"),
     route("admin/content", "routes/admin/content.tsx"),
     route("admin/content/:id", "routes/admin/content-item.tsx"),
     route("admin/sources", "routes/admin/sources.tsx"),

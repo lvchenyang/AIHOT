@@ -24,6 +24,12 @@ const api = createServer((req, res) => {
     const respond = () => res.end(JSON.stringify({ changelogVersion: "2026-09-28T12:00" }));
     return metaDelayMs ? setTimeout(respond, metaDelayMs) : respond();
   }
+  if (url.pathname === "/api/member/me") {
+    const username = req.headers.cookie?.includes("reader-b") ? "reader-b" : req.headers.cookie?.includes("reader-a") ? "reader-a" : null;
+    res.setHeader("Cache-Control", "private, no-store");
+    res.statusCode = username ? 200 : 401;
+    return res.end(JSON.stringify(username ? { id: username === "reader-a" ? 1 : 2, username, displayName: username, csrf: `${username}-csrf` } : { code: "unauthorized" }));
+  }
   if (url.pathname === "/api/site/timeline") {
     const filters = { channel: "all", category: url.searchParams.get("category"), tag: null, topic: null };
     res.setHeader("X-Accel-Expires", `@${deadline}`);
@@ -219,4 +225,28 @@ test("browser caching preserves noindex and private sign-in responses", async ()
 test("a visitor cannot name its own address to the api without a trusted proxy in front", async () => {
   const res = await fetch(`${origin}/api/site/echo-client`, { headers: { "X-Forwarded-For": "6.6.6.6", "X-Real-IP": "6.6.6.6" } });
   assert.deepEqual(await res.json(), { forwarded: "127.0.0.1", real: "127.0.0.1" });
+});
+
+test("member HTML and loader data stay private and unauthenticated requests cannot skip the guard", async () => {
+  for (const pathname of ["/account", "/account.data", "/account.data?_routes=root", "/account.data?_routes=routes%2Fmember-account"]) {
+    const anonymous = await fetch(origin + pathname, { redirect: "manual" });
+    assert.ok([202, 302].includes(anonymous.status), `${pathname}: ${anonymous.status}`);
+    assert.equal(anonymous.headers.get("Cache-Control"), "private, no-store");
+    if (anonymous.status === 302) assert.equal(anonymous.headers.get("Location"), "/login");
+    else assert.match(await anonymous.text(), /\/login/);
+    for (const username of ["reader-a", "reader-b"]) {
+      const response = await fetch(origin + pathname, { headers: { cookie: `disongas_member=${username}` } });
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("Cache-Control"), "private, no-store");
+      assert.equal(response.headers.get("X-Accel-Expires"), "0");
+      assert.equal(response.headers.get("X-Robots-Tag"), "noindex, nofollow");
+      const text = await response.text();
+      assert.ok(text.includes(username));
+      assert.ok(!text.includes(username === "reader-a" ? "reader-b" : "reader-a"));
+    }
+  }
+  const login = await fetch(origin + "/login");
+  assert.equal(login.status, 200);
+  assert.equal(login.headers.get("Cache-Control"), "private, no-store");
+  assert.match(await login.text(), /账号登录/);
 });
