@@ -18,8 +18,6 @@ const API = new URL(process.env.API_BASE_URL || "http://127.0.0.1:3001");
  */
 const TRUST_PROXY = process.env.TRUST_PROXY === "true";
 const CLIENT_DIR = path.resolve(import.meta.dirname, "build/client");
-/** Browsers keep a page at most this long, so a withdrawal reaches them within minutes. */
-const BROWSER_MAX_SECONDS = 300;
 
 const TYPES: Record<string, string> = {
   ".js": "text/javascript; charset=utf-8",
@@ -75,44 +73,26 @@ const server = createServer((req, res) => {
   });
 });
 
-/** Public navigation returns all matched loaders, so `_routes` never changes a cached answer. */
+/** Navigation returns all matched loaders; every SSR response stays private. */
 function pageCache(req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) {
   const url = new URL(req.url ?? "/", "http://web.local");
   const pathname = decodeURIComponent(url.pathname).replace(/\.data$/, "");
-  const publicRead = (req.method === "GET" || req.method === "HEAD") && !/^\/admin(?:\/|$)/i.test(pathname);
-  if (publicRead && url.pathname.endsWith(".data")) {
+  const readerNavigation = (req.method === "GET" || req.method === "HEAD") && !/^\/admin(?:\/|$)/i.test(pathname);
+  if (readerNavigation && url.pathname.endsWith(".data")) {
     url.searchParams.delete("_routes");
     req.url = url.pathname + url.search;
   }
 
-  // React Router uses the same route headers for HTML and single-fetch data. Apply the final
-  // status here: a route's successful cache policy must never cache its error or action result.
+  // Enforce the private policy after React Router has applied route-specific headers, including
+  // redirects, errors and action responses.
   const writeHead = res.writeHead.bind(res);
   res.writeHead = ((status: number, messageOrHeaders?: string | import("node:http").OutgoingHttpHeaders, headers?: import("node:http").OutgoingHttpHeaders) => {
     const outgoing = typeof messageOrHeaders === "string" ? headers : messageOrHeaders;
     for (const [name, value] of Object.entries(outgoing ?? {})) if (value !== undefined) res.setHeader(name, value);
-    const cc = String(res.getHeader("Cache-Control") ?? "");
-    if (!publicRead || status !== 200 || res.hasHeader("Set-Cookie") || !cc || /(?:private|no-store)/i.test(cc)) {
-      res.removeHeader("Expires");
-      res.setHeader("Cache-Control", "private, no-store");
-      res.setHeader("X-Accel-Expires", "0");
-    } else {
-      const now = new Date();
-      const nowSeconds = Math.floor(now.getTime() / 1000);
-      const sharedSeconds = Number(cc.match(/(?:^|,)\s*s-maxage=(\d+)/i)?.[1] ?? 0);
-      const expires = String(res.getHeader("X-Accel-Expires") ?? `@${nowSeconds + sharedSeconds}`);
-      // A sibling loader may have delayed this response after the selected loader set its TTL.
-      const seconds = /(?:^|,)\s*no-cache(?:,|$)/i.test(cc) || expires === "0" ? 0
-        : Math.max(0, Math.min(sharedSeconds, Number(expires.slice(1)) - nowSeconds));
-      res.setHeader("Date", now.toUTCString());
-      res.setHeader("X-Accel-Expires", seconds > 0 ? expires : "0");
-      // Reuse intent-prefetched data in the browser within the same shared-cache deadline (capped).
-      // Never serve it beyond that deadline, including while revalidating or on an error.
-      const directives = cc.split(",").map((value) => value.trim()).filter((value) => !/^(?:max-age|s-maxage|stale-while-revalidate|stale-if-error|must-revalidate)(?:=|$)/i.test(value));
-      res.setHeader("Cache-Control", seconds > 0
-        ? `${directives.join(", ")}, max-age=${Math.min(seconds, BROWSER_MAX_SECONDS)}, s-maxage=${seconds}, must-revalidate`
-        : "no-cache");
-    }
+    res.removeHeader("Expires");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Accel-Expires", "0");
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
     return typeof messageOrHeaders === "string" ? writeHead(status, messageOrHeaders) : writeHead(status);
   }) as typeof res.writeHead;
 }

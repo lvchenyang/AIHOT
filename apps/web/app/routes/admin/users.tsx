@@ -50,8 +50,8 @@ export default function Users({ loaderData: { rows, page, hasMore } }: Route.Com
           <label className={label}>账号<Input name="username" autoComplete="off" autoCapitalize="none" spellCheck={false} required minLength={3} maxLength={32} pattern="[a-zA-Z0-9][a-zA-Z0-9_.\-]{2,31}" /></label>
           <p className="text-[12px] text-ink-4">3–32 位字母、数字、点、下划线或短横线，以字母或数字开头，不区分大小写。账号创建后不可修改。</p>
           <label className={label}>名称<Input name="displayName" autoComplete="off" required maxLength={80} /></label>
-          <label className={label}>初始密码<Input name="password" type="password" autoComplete="new-password" required minLength={12} maxLength={128} /></label>
-          <p className="text-[12px] text-ink-4">密码需要 12–128 个字符。创建后请将账号和初始密码交给用户；用户可以在“我的账号”修改密码。</p>
+          <label className={label}>初始密码<Input name="password" type="password" autoComplete="new-password" required minLength={8} pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,128}" maxLength={128} /></label>
+          <p className="text-[12px] text-ink-4">密码需要 8–128 个字符，且同时包含字母和数字。创建后请将账号和初始密码交给用户；用户可以在“我的账号”修改密码。</p>
           <Button type="submit" tone="primary" busy={busy}>创建账号</Button>
         </form>
       </Card>}
@@ -65,8 +65,8 @@ export default function Users({ loaderData: { rows, page, hasMore } }: Route.Com
       </Card>}
       {resetting && <Card title={`重置密码 · ${resetting.username}`} className="mb-5">
         <form key={resetting.id} onSubmit={resetPassword} className="max-w-xl space-y-4">
-          <label className={label}>新密码<Input name="password" type="password" autoComplete="new-password" required minLength={12} maxLength={128} /></label>
-          <p className="text-[12px] text-ink-4">密码需要 12–128 个字符。重置后，用户会退出所有设备，请将新密码交给用户。</p>
+          <label className={label}>新密码<Input name="password" type="password" autoComplete="new-password" required minLength={8} pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,128}" maxLength={128} /></label>
+          <p className="text-[12px] text-ink-4">密码需要 8–128 个字符，且同时包含字母和数字。重置后，用户会退出所有设备，请将新密码交给用户。</p>
           <div className="flex gap-2"><Button type="submit" tone="primary" busy={busy}>确认重置密码</Button><Button disabled={busy} onClick={() => setResetting(null)}>取消</Button></div>
         </form>
       </Card>}

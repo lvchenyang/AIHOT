@@ -11,8 +11,8 @@ config.siteUrl = "https://members.example.test";
 config.adminPassword = "test-admin-password-only";
 const app = await buildApp();
 const origin = config.siteUrl;
-const password = "test-member-password-one";
-const newPassword = "test-member-password-two";
+const password = "test-member-password-1";
+const newPassword = "test-member-password-2";
 const prefix = tag();
 let sequence = 0;
 const adminLogin = await app.inject({ method: "POST", url: "/api/auth/password", payload: { password: config.adminPassword } });
@@ -73,7 +73,7 @@ test("create, duplicate checks, edits, search and audit never disclose passwords
   assert.equal((await app.inject({ method: "PATCH", url: "/api/admin/users/999999999", headers: adminHeaders, payload: { enabled: false } })).statusCode, 404);
 });
 
-test("login returns home, isolates roles and rotates sessions without changing public responses", async () => {
+test("login returns home, isolates roles and rotates sessions", async () => {
   const user = await createUser();
   const response = await login(` ${user.username.toUpperCase()} `);
   assert.equal(response.statusCode, 200, response.body);
@@ -92,7 +92,8 @@ test("login returns home, isolates roles and rotates sessions without changing p
   assert.notEqual(session.id_hash, memberCookie.split("=")[1]);
   const publicPlain = await app.inject({ url: "/api/site/meta" });
   const publicMember = await app.inject({ url: "/api/site/meta", headers: { cookie: memberCookie } });
-  assert.equal(publicPlain.body, publicMember.body);
+  assert.equal(publicPlain.statusCode, 401);
+  assert.equal(publicMember.statusCode, 200);
   assert.equal(publicPlain.headers["cache-control"], publicMember.headers["cache-control"]);
   const again = await login(user.username, password, { cookie: memberCookie });
   assert.equal(again.statusCode, 200);
@@ -207,4 +208,61 @@ test("the global login cap blocks hashing and additional per-client rate-limit r
   assert.equal(response.statusCode, 429);
   const rows = await sql`SELECT key FROM member_login_limits`;
   assert.deepEqual(rows.map((row) => row.key), ["login:all"]);
+});
+
+test("all content exits require a live session, including conditional requests and MCP", async () => {
+  const paths = ["/api/site/meta", "/api/site/timeline", "/api/site/items/anything", "/api/v1/items", "/api/v1/selected/snapshot", "/feed.xml", "/feed/category/policy.xml", "/sitemap.xml", "/llms.txt", "/openapi-v1.json", "/og/site.png", "/items/anything/markdown", "/api/img-proxy?url=anything", "/api/mcp"];
+  for (const path of paths) {
+    for (const method of ["GET", "HEAD"] as const) {
+      const response = await app.inject({ method, url: path, headers: { "if-none-match": "*", "x-aihot-ssr": "1", cookie: "disongas_member=forged" } });
+      assert.equal(response.statusCode, 401, path);
+      assert.equal(response.headers["cache-control"], "private, no-store");
+      assert.equal(response.headers["x-accel-expires"], "0");
+    }
+  }
+  assert.equal((await app.inject({ method: "POST", url: "/api/mcp", payload: {} })).statusCode, 401);
+  const user = await createUser();
+  const cookie = cookieOf(await login(user.username));
+  for (const path of ["/api/site/meta", "/api/v1/items", "/feed.xml", "/sitemap.xml"]) {
+    const response = await app.inject({ url: path, headers: { cookie } });
+    assert.equal(response.statusCode, 200, response.body);
+    assert.equal(response.headers["cache-control"], "private, no-store");
+    assert.equal(response.headers["x-accel-expires"], "0");
+    assert.match(String(response.headers.vary), /Cookie/);
+    if (response.headers.etag) {
+      const conditional = await app.inject({ url: path, headers: { cookie, "if-none-match": String(response.headers.etag) } });
+      assert.equal(conditional.statusCode, 304);
+      assert.equal(conditional.headers["cache-control"], "private, no-store");
+    }
+  }
+  assert.equal((await app.inject({ url: "/api/member/access", headers: { cookie: adminCookie } })).statusCode, 204);
+  await app.inject({ method: "PATCH", url: `/api/admin/users/${user.id}`, headers: adminHeaders, payload: { enabled: false } });
+  for (const path of [...paths, "/api/member/access"]) assert.equal((await app.inject({ url: path, headers: { cookie } })).statusCode, 401, path);
+  const oldDevAdmin = config.devAdmin;
+  config.devAdmin = { displayName: "测试开发管理员" };
+  try {
+    assert.equal((await app.inject({ url: "/api/member/access" })).statusCode, 401);
+    assert.equal((await app.inject({ url: "/api/site/timeline" })).statusCode, 401);
+  } finally { config.devAdmin = oldDevAdmin; }
+  assert.equal((await app.inject({ url: "/api/health" })).statusCode, 200);
+  assert.match((await app.inject({ url: "/robots.txt" })).body, /Disallow: \//);
+});
+
+test("create, reset and change accept eight characters with letters and digits and reject weaker values", async () => {
+  const username = `${prefix}_${++sequence}`;
+  for (const password of ["abc1234", "abcdefgh", "12345678", "!!!!!!!!", "abc12345".repeat(17)]) {
+    assert.equal((await app.inject({ method: "POST", url: "/api/admin/users", headers: adminHeaders, payload: { username, displayName: "密码校验", password } })).statusCode, 400);
+  }
+  const created = await app.inject({ method: "POST", url: "/api/admin/users", headers: adminHeaders, payload: { username, displayName: "密码校验", password: "abc12345" } });
+  assert.equal(created.statusCode, 201);
+  const id = created.json().id;
+  const cookie = cookieOf(await login(username, "abc12345"));
+  const csrf = (await me(cookie)).json().csrf;
+  assert.equal((await app.inject({ method: "POST", url: `/api/admin/users/${id}/password`, headers: adminHeaders, payload: { password: "abcdefgh" } })).statusCode, 400);
+  const headers = { cookie, origin, "x-csrf-token": csrf };
+  assert.equal((await app.inject({ method: "POST", url: "/api/member/password", headers, payload: { currentPassword: "abc12345", newPassword: "12345678" } })).statusCode, 400);
+  assert.equal((await app.inject({ method: "POST", url: "/api/member/password", headers, payload: { currentPassword: "abc12345", newPassword: "new12345" } })).statusCode, 204);
+  assert.equal((await login(username, "new12345")).statusCode, 200);
+  assert.equal((await app.inject({ method: "POST", url: `/api/admin/users/${id}/password`, headers: adminHeaders, payload: { password: "pwd12345" } })).statusCode, 204);
+  assert.equal((await login(username, "pwd12345")).statusCode, 200);
 });

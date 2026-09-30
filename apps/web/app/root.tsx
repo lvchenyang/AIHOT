@@ -15,6 +15,12 @@ import { buttonClass } from "./components/ui/Controls";
 import { THEME_BOOT_SCRIPT } from "./lib/local-state";
 import { apiGet } from "./lib/api.server";
 import { useHydratedFlag } from "./lib/hydration";
+import { siteAccess } from "./lib/site-access.server";
+import { requiresPageAccess } from "@aihot/contracts/site-access";
+import { clientSiteAccess } from "./lib/site-access";
+
+export const middleware = [siteAccess];
+export const clientMiddleware = [clientSiteAccess];
 
 export const links: Route.LinksFunction = () => [
   { rel: "icon", href: "/favicon.ico", sizes: "any" },
@@ -29,6 +35,7 @@ interface SiteMeta {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
+  if (!requiresPageAccess(new URL(request.url).pathname)) return { changelogVersion: null } satisfies SiteMeta;
   try {
     return await apiGet<SiteMeta>("/api/site/meta", { signal: request.signal });
   } catch {
@@ -93,6 +100,7 @@ export default function App() {
   const { pathname } = useLocation();
   // The admin has its own chrome.
   if (pathname === "/admin" || pathname.startsWith("/admin/")) return <Outlet />;
+  if (pathname === "/login") return <main className="min-h-dvh px-4"><Outlet /></main>;
   return (
     <SiteShell changelogVersion={meta.changelogVersion}>
       <Outlet />

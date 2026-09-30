@@ -54,18 +54,7 @@ async function sendFile(req: FastifyRequest, reply: FastifyReply, file: string, 
 }
 
 function robotsTxt(): string {
-  return [
-    "User-agent: *",
-    "Allow: /api/v1/",
-    "Allow: /api/mcp",
-    "Disallow: /api/",
-    "Disallow: /admin/",
-    "Disallow: /starred",
-    "Disallow: /feedback",
-    "",
-    `Sitemap: ${config.siteUrl}/sitemap.xml`,
-    "",
-  ].join("\n");
+  return "User-agent: *\nDisallow: /\n";
 }
 
 function manifest() {

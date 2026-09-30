@@ -1,6 +1,7 @@
 // Server-side HTTP client for route loaders. The web process never touches the database;
 // SSR reads the api over loopback with keep-alive, one or two requests per page.
 import { data, redirect } from "react-router";
+import { requestCookie } from "./site-access.server.ts";
 
 const API_BASE = process.env.API_BASE_URL || "http://127.0.0.1:3001";
 
@@ -18,7 +19,7 @@ export class ApiError extends Error {
 
 export async function apiGet<T>(path: string, init?: { signal?: AbortSignal; headers?: Record<string, string>; responseHeaders?: Headers }): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { accept: "application/json", "x-aihot-ssr": "1", ...init?.headers },
+    headers: { accept: "application/json", "x-aihot-ssr": "1", cookie: requestCookie(), ...init?.headers },
     signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000),
   });
   if (!res.ok) {

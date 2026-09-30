@@ -17,6 +17,7 @@ import { registerFeeds } from "./routes/feeds.ts";
 import { registerStatic } from "./routes/static.ts";
 import { registerMcp } from "./routes/mcp.ts";
 import { sendProblem } from "./http/respond.ts";
+import { registerSiteAccess } from "./http/site-access.ts";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -58,6 +59,8 @@ export async function buildApp(): Promise<FastifyInstance> {
       return reply.code(decision.status).type("text/plain; charset=utf-8").send(decision.status === 410 ? "Gone" : "Not found");
     }
   });
+
+  registerSiteAccess(app);
 
   app.get("/api/health", async (_req, reply) => {
     const started = Date.now();

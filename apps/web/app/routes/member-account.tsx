@@ -44,9 +44,9 @@ export default function MemberAccount({ loaderData: member }: Route.ComponentPro
         <h2 className="text-[16px] font-semibold">修改密码</h2>
         <input type="hidden" name="username" value={member.username} autoComplete="username" />
         <label className="block text-[14px] text-ink-2">当前密码<input name="currentPassword" type="password" autoComplete="current-password" required maxLength={256} className={input} /></label>
-        <label className="block text-[14px] text-ink-2">新密码<input name="newPassword" type="password" autoComplete="new-password" required minLength={12} maxLength={128} className={input} /></label>
-        <label className="block text-[14px] text-ink-2">确认新密码<input name="confirmPassword" type="password" autoComplete="new-password" required minLength={12} maxLength={128} className={input} /></label>
-        <p className="text-[12.5px] leading-relaxed text-ink-4">密码需要 12–128 个字符。修改后，所有设备都需要重新登录。</p>
+        <label className="block text-[14px] text-ink-2">新密码<input name="newPassword" type="password" autoComplete="new-password" required minLength={8} pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,128}" maxLength={128} className={input} /></label>
+        <label className="block text-[14px] text-ink-2">确认新密码<input name="confirmPassword" type="password" autoComplete="new-password" required minLength={8} pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,128}" maxLength={128} className={input} /></label>
+        <p className="text-[12.5px] leading-relaxed text-ink-4">密码需要 8–128 个字符，且同时包含字母和数字。修改后，所有设备都需要重新登录。</p>
         {error && <p role="alert" className="text-[13px] text-hot">{error}</p>}
         <Button type="submit" variant="primary" disabled={pending}>{pending ? "正在处理…" : "修改密码"}</Button>
       </form>

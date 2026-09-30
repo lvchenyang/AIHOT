@@ -1,3 +1,4 @@
+import { readerCookie } from "./member-fixture.ts";
 // Full-text translations follow the text: an article corrected while the model was translating the old
 // wording is translated again, and a translation of an older revision is never shown as the current one.
 // Links and images inside a paragraph survive the model, and the post an X item quotes is translated.
@@ -41,6 +42,7 @@ const provider = await stub(async (_hit, req) => {
 process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
 process.env.DEEPSEEK_API_KEY = "test-key";
 const app = await buildApp();
+const cookie = await readerCookie();
 
 // Discovered "later" than anything else in the test database, so a one-item run takes this article. The
 // tag keeps the text unique: identical input would reuse an earlier run's paid answer.
@@ -51,7 +53,7 @@ const material = (price: string) =>
   });
 
 async function detail(id: string) {
-  const res = await app.inject({ method: "GET", url: `/api/site/items/${id}` });
+  const res = await app.inject({ method: "GET", url: `/api/site/items/${id}`, headers: { cookie } });
   assert.equal(res.statusCode, 200);
   return JSON.parse(res.body) as { body: { zh: string | null; original: string | null; complete: boolean } };
 }
@@ -129,7 +131,7 @@ test("the post a selected X post quotes is translated once and shown with the it
   assert.ok(run.quotes >= 1);
   const [q] = await sql<{ text_zh: string; origin: string }[]>`SELECT text_zh, origin FROM quote_translations WHERE tweet_id = ${tweetId}`;
   assert.deepEqual({ ...q }, { text_zh: "隆重推出 Sonnet 5.5。", origin: "model" });
-  const res = await app.inject({ method: "GET", url: `/api/site/items/${id}` });
+  const res = await app.inject({ method: "GET", url: `/api/site/items/${id}`, headers: { cookie } });
   const item = JSON.parse(res.body) as { x: { quoted: { text: string; translation: string | null } } };
   assert.deepEqual([item.x.quoted.text, item.x.quoted.translation], [`Introducing Claude Sonnet 5.5 ${T}`, "隆重推出 Sonnet 5.5。"]);
   await translatePending({ limit: 1 });

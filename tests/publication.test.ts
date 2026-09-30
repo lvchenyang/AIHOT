@@ -1,3 +1,4 @@
+import { readerCookie } from "./member-fixture.ts";
 // Public scope and sync through the real api routes: a licence revocation or a withdrawal reaches
 // every exit, reports stop quoting withdrawn items, the hot board drops a withdrawn item at once, item
 // pages follow the site's rule, an early release keeps the selected ledger in order, a withdrawal
@@ -27,6 +28,7 @@ const SOURCE = `test-publication-${T}`;
 const BODY = `FULLTEXT-${T} `.repeat(40);
 const REPORT_KEY = `2099-12-${String(10 + Math.floor(Math.random() * 19))}`;
 const app = await buildApp();
+const cookie = await readerCookie();
 
 before(async () => {
   // An interrupted earlier run may have left entries behind the release gate, holding the watermark.
@@ -65,7 +67,7 @@ async function storyFor(id: string, role: "report" | "mention" = "report"): Prom
 
 const released = () => ({ releasedAt: new Date(Date.now() - 60_000) });
 async function get(url: string, headers: Record<string, string> = {}) {
-  const res = await app.inject({ method: "GET", url, headers });
+  const res = await app.inject({ method: "GET", url, headers: { cookie, ...headers } });
   return { status: res.statusCode, body: res.body, etag: res.headers.etag as string | undefined };
 }
 
@@ -353,7 +355,7 @@ test("share images keep detail metadata and access rules while conditional reads
       assert.equal(response.status, 304);
       assert.equal(response.etag, etag);
     }
-    assert.equal(queries.length, 2);
+    assert.equal(queries.filter((query) => !query.includes("member_sessions")).length, 2);
     assert.ok(queries.every((q) => !/body_html|body_text|translations|fact_articles/.test(q)), "cards only load their public metadata");
   } finally { sql.options.debug = previous; }
   await sql`UPDATE publications SET visibility = 'summary-only' WHERE article_id = ${id}`;

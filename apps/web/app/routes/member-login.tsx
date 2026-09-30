@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import type { Route } from "./+types/member-login";
 import { SITE } from "@aihot/industry/site";
@@ -11,6 +11,15 @@ export default function MemberLogin() {
   const [params] = useSearchParams();
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  useEffect(() => {
+    // Discard retained article lists from the previous signed-in browser session.
+    try {
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith("aihot:list:") || key?.startsWith("aihot:groups:")) sessionStorage.removeItem(key);
+      }
+    } catch { /* storage may be unavailable */ }
+  }, []);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;

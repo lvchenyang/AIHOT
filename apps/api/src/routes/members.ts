@@ -3,6 +3,7 @@ import type { MemberMe } from "@aihot/contracts/members";
 import { config } from "@aihot/backend/config";
 import { changeMemberPassword, limitMemberAttempts, loginMember, logoutMember, MemberError, memberCookie, memberPrincipal, normalizeUsername } from "@aihot/backend/members/auth";
 import { sendProblem } from "../http/respond.ts";
+import { hasSiteAccess } from "@aihot/backend/members/access";
 
 type MemberHandler = (req: FastifyRequest, reply: FastifyReply, member: MemberMe) => Promise<unknown>;
 
@@ -40,6 +41,10 @@ export function memberHandler(fn: MemberHandler) {
 }
 
 export function registerMembers(app: FastifyInstance) {
+  app.get("/api/member/access", async (req, reply) => {
+    reply.header("Cache-Control", "private, no-store");
+    return reply.code(await hasSiteAccess(req.headers.cookie) ? 204 : 401).send();
+  });
   app.post("/api/member/login", { bodyLimit: 4096 }, async (req, reply) => {
     reply.header("Cache-Control", "private, no-store");
     try {

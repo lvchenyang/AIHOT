@@ -13,7 +13,7 @@ import { Select } from "../components/ui/Controls";
 import { IconArrowLeft, IconChevronRight, IconClock, IconDoc, IconUsers } from "../components/icons";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  const res = await fetch(`${process.env.API_BASE_URL || "http://127.0.0.1:3001"}/api/site/stories/${encodeURIComponent(params.publicId)}`, { redirect: "manual", signal: AbortSignal.any([request.signal, AbortSignal.timeout(15000)]) });
+  const res = await fetch(`${process.env.API_BASE_URL || "http://127.0.0.1:3001"}/api/site/stories/${encodeURIComponent(params.publicId)}`, { headers: { cookie: request.headers.get("cookie") ?? "" }, redirect: "manual", signal: AbortSignal.any([request.signal, AbortSignal.timeout(15000)]) });
   if (res.status === 308) {
     const target = (await res.json()) as { mergedInto: string };
     throw redirect(`/story/${target.mergedInto}`, 308);
