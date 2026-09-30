@@ -17,7 +17,7 @@ import { chatJson, MODELS, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError } from "../providers/receipts.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { modelFor } from "./models.ts";
-import { buildMaterial, firstImagePart, loadAnalyzeInput, type AnalyzeInputArticle } from "./input.ts";
+import { buildMaterial, bodyImageParts, bodyImageUrls, loadAnalyzeInput, type AnalyzeInputArticle } from "./input.ts";
 import { pageFetchable } from "../content/extract.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import {
@@ -31,11 +31,11 @@ import { promptText, promptVersion } from "./prompts.ts";
 export { buildMaterial, loadAnalyzeInput, type AnalyzeInputArticle };
 
 export const PROMPT_VERSIONS = {
-  prefilter: promptVersion("prefilter"),
-  score: promptVersion("selection-score"),
-  understand: promptVersion("understand"),
-  summarize: promptVersion("summarize-article", "summarize-article-empty", "summarize-short-post", "summarize-short-post-quoted", "summarize-long-post", "summarize-long-post-quoted", "identity-context"),
-  structure: promptVersion("structure"),
+  prefilter: promptVersion("prefilter", "body-images"),
+  score: promptVersion("selection-score", "body-images"),
+  understand: promptVersion("understand", "body-images"),
+  summarize: promptVersion("summarize-article", "summarize-article-empty", "summarize-short-post", "summarize-short-post-quoted", "summarize-long-post", "summarize-long-post-quoted", "identity-context", "body-images"),
+  structure: promptVersion("structure", "body-images"),
 } as const;
 /** Every step's prompt, as stored on each judgement. */
 export const ANALYZE_PROMPT_VERSION = Object.values(PROMPT_VERSIONS).join("+");
@@ -181,7 +181,7 @@ export function waitsForPage(a: AnalyzeInputArticle): boolean {
   return a.bodyStatus === "pending" && !a.bodyText && !a.xPost && pageFetchable(a.url, a.source.kind);
 }
 
-type StepOpts = { attemptTag?: string; scoreModel?: string };
+type StepOpts = { attemptTag?: string; scoreModel?: string; images?: () => Promise<ContentPart[]> };
 export class AnalysisInterruptedError extends Error {}
 
 function checkAnalysisRunning() {
@@ -191,8 +191,19 @@ function checkAnalysisRunning() {
 const subjectOf = (a: AnalyzeInputArticle) => `article:${a.id}@${a.revision}`;
 const tagged = (attemptTag: string | undefined, step: string) => [attemptTag, step].filter(Boolean).join(":") || undefined;
 
+async function imagesFor(model: string, opts: StepOpts): Promise<ContentPart[]> {
+  return MODELS[model]?.vision === true && opts.images ? opts.images() : [];
+}
+
+function withImages(a: AnalyzeInputArticle, text: string, images: ContentPart[]): string | ContentPart[] {
+  const total = bodyImageUrls(a).length;
+  const content = total ? `${text}\n\n${promptText("body-images", { total: String(total), attached: String(images.length) })}` : text;
+  return images.length ? [{ type: "text", text: content }, ...images] : content;
+}
+
 async function runPrefilter(a: AnalyzeInputArticle, opts: StepOpts): Promise<AnalysisRun["prefilter"]> {
   const model = await modelFor("prefilter");
+  const images = await imagesFor(model, opts);
   checkAnalysisRunning();
   const res = await chatJson({
     model,
@@ -200,21 +211,21 @@ async function runPrefilter(a: AnalyzeInputArticle, opts: StepOpts): Promise<Ana
     subject: subjectOf(a),
     promptVersion: PROMPT_VERSIONS.prefilter,
     system: PREFILTER_SYSTEM,
-    user: prefilterUser(a),
+    user: withImages(a, prefilterUser(a), images),
     schema: PrefilterSchema,
     temperature: 0,
     maxTokens: 512,
     attemptTag: opts.attemptTag,
   });
   // A BLOCK without material to back it counts as UNKNOWN (which goes on).
-  const label = res.data.label === "BLOCK" && missingEvidence(a) ? "UNKNOWN" : res.data.label;
+  const label = res.data.label === "BLOCK" && missingEvidence(a) && !images.length ? "UNKNOWN" : res.data.label;
   return { label, reason: res.data.reason, model: res.model, receiptId: res.receiptId, reused: res.reused };
 }
 
 async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOpts): Promise<NonNullable<AnalysisRun["scores"]>> {
   const model = opts.scoreModel ?? (await modelFor("score"));
   const call = scoreCall(model);
-  const input = buildScoreInput(a);
+  const input = withImages(a, buildScoreInput(a), await imagesFor(model, opts));
   const values: number[] = [];
   const receiptIds: number[] = [];
   let reused = true;
@@ -249,7 +260,7 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     subject: subjectOf(a),
     promptVersion: PROMPT_VERSIONS.structure,
     system: STRUCTURE_SYSTEM,
-    user: buildMaterial(a),
+    user: withImages(a, buildMaterial(a), await imagesFor(model, opts)),
     schema: StructureSchema,
     temperature: 0.2,
     maxTokens: 800,
@@ -263,30 +274,19 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
 async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<AnalysisRun["writing"]> {
   const model = await modelFor("understand");
   const text = understandUser(a);
-  const call = (image: ContentPart | null) => {
-    checkAnalysisRunning();
-    return chatJson({
-      model, purpose: "understand_article", subject: subjectOf(a), promptVersion: PROMPT_VERSIONS.understand, system: UNDERSTAND_SYSTEM,
-      user: image ? [{ type: "text", text }, image] : text, schema: UnderstandSchema, temperature: 0.2, maxTokens: 16_384,
-      timeoutMs: 180_000, attemptTag: tagged(opts.attemptTag, "understand"),
-    });
-  };
-  // A model that is known not to read images gets the text only.
-  const image = MODELS[model]?.vision === false ? null : await firstImagePart(a);
-  let res: Awaited<ReturnType<typeof call>>;
-  try {
-    res = await call(image);
-  } catch (error) {
+  const images = await imagesFor(model, opts);
+  if (missingEvidence(a) && !images.length) return null;
+  checkAnalysisRunning();
+  const res = await chatJson({
+    model, purpose: "understand_article", subject: subjectOf(a), promptVersion: PROMPT_VERSIONS.understand, system: UNDERSTAND_SYSTEM,
+    user: withImages(a, text, images), schema: UnderstandSchema, temperature: 0.2, maxTokens: 16_384,
+    timeoutMs: 180_000, attemptTag: tagged(opts.attemptTag, "understand"),
+  }).catch((error) => {
     if (isContentFilter(error)) return null;
-    // The model refused the image (download, format): the text is written without it.
-    if (!image || !(error instanceof ProviderRejectedError) || error.retryable) throw error;
-    try {
-      res = await call(null);
-    } catch (retryError) {
-      if (isContentFilter(retryError)) return null;
-      throw retryError;
-    }
-  }
+    // A rejected picture is a failed analysis, never an invisible fallback to a title-only summary.
+    throw error;
+  });
+  if (!res) return null;
   const d = res.data;
   const copy = finalizeCopy(translateInputOf(a), { titleZh: d.titleZh, summaryZh: d.summaryZh });
   return {
@@ -298,15 +298,17 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
 
 /** The title/summary prompts (articles, long and short posts). */
 async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["writing"]>> {
-  const t = translateInputOf(a);
+  const model = await modelFor("summarize");
+  const images = await imagesFor(model, opts);
+  const original = translateInputOf(a);
+  const t = images.length && !original.text.trim() ? { ...original, text: "正文见随附图片。请读取图片中的内容。" } : original;
   const isX = t.sourceKind === "x_search";
   const short = isShortTweetInput(t);
   const main = collapseWhitespace(t.mainText || t.title);
   const plain = { reasonZh: null, tags: null, receiptIds: [] as number[], reused: true };
   // A short post already in Chinese is its own copy, and too little text is not written up from a title.
-  if (short && !needsShortTweetTranslation(main)) return { kind: "verbatim", model: null, titleZh: main, summaryZh: main, ...plain };
-  if (!short && t.text.trim().length < 20) return { kind: "none", model: null, titleZh: looksZh(t.title) ? t.title : "", summaryZh: "", ...plain };
-  const model = await modelFor("summarize");
+  if (short && !images.length && !needsShortTweetTranslation(main)) return { kind: "verbatim", model: null, titleZh: main, summaryZh: main, ...plain };
+  if (!short && t.text.trim().length < 20 && !images.length) return { kind: "none", model: null, titleZh: looksZh(t.title) ? t.title : "", summaryZh: "", ...plain };
   checkAnalysisRunning();
   const res = await chatJson({
     model,
@@ -314,7 +316,7 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     subject: subjectOf(a),
     promptVersion: PROMPT_VERSIONS.summarize,
     system: "",
-    user: short ? buildShortTweetPrompt(t) : isX ? buildLongTweetPrompt(t) : buildArticlePrompt(t),
+    user: withImages(a, short ? buildShortTweetPrompt(t) : isX ? buildLongTweetPrompt(t) : buildArticlePrompt(t), images),
     schema: SummarizeSchema,
     json: false,
     parse: parseTranslateOutput,
@@ -338,6 +340,8 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
  */
 export async function runAnalysis(a: AnalyzeInputArticle, opts: StepOpts & { stages?: "selection" | "all" } = {}): Promise<AnalysisRun> {
   checkAnalysisRunning();
+  let imageJob: Promise<ContentPart[]> | undefined;
+  opts = { ...opts, images: () => imageJob ??= bodyImageParts(a) };
   const prefilter = await runPrefilter(a, opts);
   // UNKNOWN is let through (its material is as complete as it will get); BLOCK stops here.
   if (prefilter.label === "BLOCK") return { prefilter, scores: null, writing: null, structure: null };

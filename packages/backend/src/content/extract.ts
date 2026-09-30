@@ -1,5 +1,6 @@
 // Article body extraction: readable text from the article page, or "unconfirmed" — never a wrong body.
 // Jina Reader is the budgeted fallback for pages that only render in a browser.
+import * as cheerio from "cheerio";
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { sql } from "../db.ts";
@@ -9,20 +10,51 @@ import { jinaRead } from "../providers/jina.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { getArticle } from "../providers/socialdata.ts";
 import { onlyXArticleLink, xArticleText } from "../sources/x.ts";
-import { sanitizeBody, trimTrailingChrome } from "./sanitize.ts";
+import { dropPageChrome } from "./sanitize.ts";
+import { bodyToMarkdown, markdownToBody } from "./markdown.ts";
 import { contentHash } from "./materials.ts";
 
 export interface ExtractedBody {
   html: string;
+  markdown: string;
   text: string;
   images: Array<{ kind: "image"; url: string; width: number | null; height: number | null }>;
-  via: "readability" | "jina";
+  via: "readability" | "selector" | "jina";
 }
 
 const MIN_BODY_CHARS = 200;
 
-export function readable(html: string, url: string): ExtractedBody | null {
-  const { document } = parseHTML(html);
+export interface BodyRules {
+  selector?: string;
+  removeSelectors?: string[];
+}
+
+function extracted(html: string, url: string, via: ExtractedBody["via"], explicit = false): ExtractedBody | null {
+  const markdown = bodyToMarkdown(html, url);
+  const clean = markdownToBody(markdown, url);
+  const text = stripTags(clean);
+  const $ = cheerio.load(clean, null, false);
+  const images: ExtractedBody["images"] = [];
+  $("img[src]").each((_, el) => {
+    const img = $(el);
+    const src = img.attr("src")!;
+    if (images.length >= 12 || !/^https?:\/\//.test(src) || images.some((image) => image.url === src)) return;
+    images.push({ kind: "image", url: src, width: Number(img.attr("width")) || null, height: Number(img.attr("height")) || null });
+  });
+  if (explicit ? !text.trim() && !images.length : text.length < MIN_BODY_CHARS) return null;
+  return { html: clean, markdown, text, images, via };
+}
+
+export function readable(html: string, url: string, rules: BodyRules = {}): ExtractedBody | null {
+  const $ = cheerio.load(html);
+  if (rules.selector) {
+    const selected = $(rules.selector);
+    // Missing or ambiguous containers must never fall back to the whole page.
+    if (selected.length !== 1) return null;
+    return extracted(dropPageChrome(selected.html() ?? "", rules.removeSelectors), url, "selector", true);
+  }
+  $("body > header, body > footer").remove();
+  const { document } = parseHTML(dropPageChrome($.html(), rules.removeSelectors));
   try {
     const base = document.createElement("base");
     base.setAttribute("href", url);
@@ -31,49 +63,15 @@ export function readable(html: string, url: string): ExtractedBody | null {
     // no head
   }
   const article = new Readability(document as unknown as ConstructorParameters<typeof Readability>[0], { charThreshold: MIN_BODY_CHARS, keepClasses: false }).parse();
-  if (!article?.content) return null;
-  const clean = trimTrailingChrome(sanitizeBody(article.content, url));
-  const text = stripTags(clean);
-  if (text.length < MIN_BODY_CHARS) return null;
-  const images: ExtractedBody["images"] = [];
-  for (const m of clean.matchAll(/<img\b[^>]*\bsrc="([^"]+)"[^>]*>/gi)) {
-    const w = /\bwidth="(\d+)"/.exec(m[0]);
-    const h = /\bheight="(\d+)"/.exec(m[0]);
-    images.push({ kind: "image", url: m[1]!.replace(/&amp;/g, "&"), width: w ? Number(w[1]) : null, height: h ? Number(h[1]) : null });
-    if (images.length >= 12) break;
-  }
-  return { html: clean, text, images, via: "readability" };
+  return article?.content ? extracted(article.content, url, "readability") : null;
 }
 
-function markdownToHtml(md: string): string {
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const inline = (s: string) =>
-    esc(s)
-      .replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g, '<img src="$2" alt="$1">')
-      .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2">$1</a>')
-      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-      .replace(/`([^`]+)`/g, "<code>$1</code>");
-  const blocks = md.split(/\n{2,}/);
-  return blocks
-    .map((b) => {
-      const t = b.trim();
-      if (!t) return "";
-      if (/^```/.test(t)) return `<pre><code>${esc(t.replace(/^```\w*\n?|```$/g, ""))}</code></pre>`;
-      const h = /^(#{1,4})\s+(.+)$/.exec(t);
-      if (h) return `<h${Math.min(h[1]!.length + 1, 4)}>${inline(h[2]!)}</h${Math.min(h[1]!.length + 1, 4)}>`;
-      if (/^[-*]\s/.test(t)) return `<ul>${t.split("\n").map((l) => `<li>${inline(l.replace(/^[-*]\s+/, ""))}</li>`).join("")}</ul>`;
-      if (/^>\s?/.test(t)) return `<blockquote><p>${inline(t.replace(/^>\s?/gm, ""))}</p></blockquote>`;
-      return `<p>${inline(t).replace(/\n/g, "<br>")}</p>`;
-    })
-    .join("");
-}
-
-export async function extractFromUrl(url: string, opts: { allowJina: boolean; subject: string }): Promise<ExtractedBody | null> {
+export async function extractFromUrl(url: string, opts: { allowJina: boolean; subject: string; body?: BodyRules }): Promise<ExtractedBody | null> {
   try {
     const res = await guardedFetch(url, { timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024 });
     const type = res.headers.get("content-type") ?? "";
     if (res.status === 200 && /html/.test(type)) {
-      const got = readable(res.text(), res.url);
+      const got = readable(res.text(), res.url, opts.body);
       if (got) return got;
     }
   } catch {
@@ -81,11 +79,14 @@ export async function extractFromUrl(url: string, opts: { allowJina: boolean; su
   }
   if (!opts.allowJina) return null;
   try {
-    const page = await jinaRead(url, { purpose: "body_fallback", subject: opts.subject });
-    const html = trimTrailingChrome(sanitizeBody(markdownToHtml(page.markdown), url));
-    const text = stripTags(html);
-    if (text.length < MIN_BODY_CHARS) return null;
-    return { html, text, images: [], via: "jina" };
+    // CSS rules need the rendered DOM, not Markdown with all selectors already erased.
+    const hasRules = !!opts.body?.selector || !!opts.body?.removeSelectors?.length;
+    const page = await jinaRead(url, { purpose: "body_fallback", subject: opts.subject, format: hasRules ? "html" : "markdown" });
+    if (hasRules) {
+      const got = readable(page.markdown, url, opts.body);
+      return got ? { ...got, via: "jina" } : null;
+    }
+    return extracted(markdownToBody(page.markdown, url), url, "jina");
   } catch (error) {
     if (error instanceof BudgetExceededError) return null;
     throw error;
@@ -105,11 +106,11 @@ export function pageFetchable(url: string, sourceKind: string): boolean {
 
 /** Fetches and stores the body of one article. Unconfirmed bodies are recorded as such. */
 export async function extractArticleBody(articleId: string, allowJina = process.env.JINA_BODY_FALLBACK !== "false"): Promise<"ok" | "unconfirmed" | "skipped"> {
-  const [a] = await sql<{ id: string; url: string; body_status: string; revision: number; x_post: { tweetId?: string } | null }[]>`
-    SELECT id, url, body_status, revision, x_post FROM articles WHERE id = ${articleId}`;
+  const [a] = await sql<{ id: string; url: string; body_status: string; revision: number; x_post: { tweetId?: string } | null; config: { body?: BodyRules } }[]>`
+    SELECT a.id, a.url, a.body_status, a.revision, a.x_post, s.config FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${articleId}`;
   if (!a || a.body_status === "ok") return "skipped";
   if (a.x_post?.tweetId) return extractXArticle(a.id, a.x_post.tweetId);
-  const got = await extractFromUrl(a.url, { allowJina, subject: `article:${a.id}` });
+  const got = await extractFromUrl(a.url, { allowJina, subject: `article:${a.id}`, body: a.config.body });
   if (!got) {
     await sql`UPDATE articles SET body_status = 'unconfirmed', updated_at = now() WHERE id = ${articleId} AND body_status <> 'ok'`;
     return "unconfirmed";
@@ -121,7 +122,7 @@ export async function extractArticleBody(articleId: string, allowJina = process.
     const hash = contentHash({ title: row.title, bodyText: got.text, excerpt: row.excerpt });
     const [r] = await tx<{ revision: number }[]>`
       UPDATE articles SET body_html = ${got.html}, body_text = ${got.text}, body_status = 'ok',
-        media = CASE WHEN jsonb_array_length(media) = 0 THEN ${tx.json(got.images as never)}::jsonb ELSE media END,
+        media = ${tx.json(got.images as never)}::jsonb,
         revision = revision + 1, content_hash = ${hash}, processing_state = 'new', updated_at = now()
       WHERE id = ${articleId} RETURNING revision`;
     await tx`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)

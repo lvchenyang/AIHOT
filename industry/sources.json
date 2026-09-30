@@ -201,6 +201,7 @@
           "https://www.shpgx.com/html/jygg/",
           "https://www.shpgx.com/html/hyzq/"
         ],
+        "body": { "selector": ".center_content" },
         "detail": {
           "maxFetches": 12,
           "publishedAtSelector": ".center_content_tlt_ifo",

@@ -78,6 +78,7 @@ const unfetchedXArticle = (a: AnalyzeInputArticle) => !!a.xPost && a.bodyStatus 
 function materialQuality(a: AnalyzeInputArticle): string {
   if (a.xPost) return "完整正文（来自 RSS / API 自带的 content 字段）";
   if (a.bodyText) return a.source.fetchesBody ? "完整正文（抓自原始网页）" : "完整正文（来自 RSS / API 自带的 content 字段）";
+  if (a.media.some((m) => m.kind === "image")) return "正文含图片；实际可见范围以本次附带图片为准，未读取不等于未披露";
   if (a.excerpt) return "仅摘要（feed 未提供完整正文）";
   if (a.bodyStatus === "unconfirmed") return "抓取失败，仅标题可用";
   return "无有效文本";

@@ -1,10 +1,11 @@
 // The config keys each kind of source implements. Anything else is refused: a key a collector does not
 // know would otherwise fall back silently to the generic parse (menus and sentence fragments as
 // articles, dates never found).
+import * as cheerio from "cheerio";
 import type { SourceRow } from "./types.ts";
 
 // Rules applied in collect.ts to every kind read through collectSource.
-const COLLECTED = ["_aihot", "allowUrlPrefixes", "denyUrlPrefixes", "ingestNoiseFilter", "itemUrlPrefixRewrite", "sortByPublishedAt", "detail", "fetchPublicContent"];
+const COLLECTED = ["_aihot", "allowUrlPrefixes", "denyUrlPrefixes", "ingestNoiseFilter", "itemUrlPrefixRewrite", "sortByPublishedAt", "detail", "body", "fetchPublicContent"];
 
 const KEYS: Record<SourceRow["kind"], string[]> = {
   rss: [...COLLECTED, "feedUrl", "summaryIsBody", "preserveUrlFragment", "allowCategories", "denyCategories"],
@@ -30,6 +31,7 @@ const NESTED: Record<string, string[]> = {
   itemUrlPrefixRewrite: ["from", "to"],
   requireBoolean: ["path", "equals"],
   minNumeric: ["path", "min"],
+  body: ["selector", "removeSelectors"],
   detail: [
     "maxFetches", "publishedAtSelector", "publishedAtRegex", "publishedAtUtcOffset", "publishedAtAuthoritative", "upgradeDatePrecision",
     "titleSelector", "titleRegex", "titleAuthoritative", "summarySelector",
@@ -50,6 +52,18 @@ export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string
     else if (VALUES[key] && !VALUES[key]!.includes(String(value))) out.push(`${key}=${String(value)}`);
     else if (NESTED[key] && value && typeof value === "object") {
       for (const sub of Object.keys(value)) if (!NESTED[key]!.includes(sub)) out.push(`${key}.${sub}`);
+    }
+  }
+  if (allowed.has("body") && config.body !== undefined) {
+    const body = config.body as Record<string, unknown> | null;
+    if (!body || typeof body !== "object" || Array.isArray(body)) out.push("body (需要对象)");
+    else {
+      const validSelector = (value: unknown): boolean => {
+        if (typeof value !== "string" || !value.trim()) return false;
+        try { cheerio.load("")(value); return true; } catch { return false; }
+      };
+      if (body.selector !== undefined && !validSelector(body.selector)) out.push("body.selector (无效的选择器)");
+      if (body.removeSelectors !== undefined && (!Array.isArray(body.removeSelectors) || !body.removeSelectors.every(validSelector))) out.push("body.removeSelectors (需要选择器数组)");
     }
   }
   return out;
