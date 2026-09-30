@@ -88,7 +88,7 @@ export async function runBackup(now = new Date()) {
   // tried once more and otherwise reported: the database dump still ships, but the run fails.
   const kept: string[] = [];
   // Feedback screenshots waiting to be forwarded are not kept: the privacy notice keeps only Feishu image keys.
-  for (const d of ["uploads"]) if (await stat(path.join(config.dataDir, d)).then((i) => i.isDirectory(), () => false)) kept.push(d);
+  for (const d of ["uploads", "body-assets"]) if (await stat(path.join(config.dataDir, d)).then((i) => i.isDirectory(), () => false)) kept.push(d);
   let filesError: string | null = null;
   if (!kept.length) await run("tar", ["-czf", files, "-T", "/dev/null"]);
   else {

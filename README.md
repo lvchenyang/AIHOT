@@ -55,6 +55,6 @@ LNG 评分提示词保留原来的内容类型、五维加权、噪声抑制和�
 
 ## 开发文档
 
-[定制](docs/customize.md) · [信源](docs/sources.md) · [精选与校准](docs/selection.md) · [部署](docs/deploy.md)
+[定制](docs/customize.md) · [信源](docs/sources.md) · [正文与图片读取](docs/body-reading.md) · [精选与校准](docs/selection.md) · [部署](docs/deploy.md)
 
 基于 [AIHOT 开源框架](https://github.com/KKKKhazix/AIHOT) 定制，沿用 MIT 许可。原有 [LICENSE](LICENSE) 与 [NOTICE](NOTICE) 保留；站点使用独立名称和图标。

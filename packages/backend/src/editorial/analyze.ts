@@ -9,6 +9,7 @@
 //      topics and the event grouping need; it runs beside the scoring.
 // Material with only a title or a feed summary has its article page fetched before it is judged.
 import { z } from "zod";
+import { needsBodyReading } from "../content/reading.ts";
 import { CATEGORY_KEYS } from "@aihot/contracts/taxonomy";
 import { CATEGORIES } from "@aihot/industry/taxonomy";
 import { SELECTION } from "@aihot/industry/selection";
@@ -86,7 +87,9 @@ export function scoreInputTime(at: Date): string {
  */
 export function buildScoreInput(a: AnalyzeInputArticle): string {
   let body: string;
-  if (a.xPost) {
+  if (a.readingId) {
+    body = a.bodyText ?? "";
+  } else if (a.xPost) {
     const quoted = a.xPost.quoted?.text ? `\n\n[引用 ${a.xPost.quoted.handle ? `@${a.xPost.quoted.handle}` : "原推文"}]：${a.xPost.quoted.text}` : "";
     body = `${String(a.xPost.text ?? "").trim()}${quoted}`.trim();
   } else {
@@ -98,7 +101,7 @@ export function buildScoreInput(a: AnalyzeInputArticle): string {
     "请按系统规则评估以下单篇材料所代表的事件。只输出 attentionScore。",
     `【发布时间（北京时间）】\n${at ? scoreInputTime(at) : ""}`,
     `【标题】\n${a.title.trim()}`,
-    `【完整正文】\n${body.length > MAX_BODY_CHARS ? body.slice(0, MAX_BODY_CHARS) : body}`,
+    `【完整正文】\n${!a.readingId && body.length > MAX_BODY_CHARS ? body.slice(0, MAX_BODY_CHARS) : body}`,
   ].join("\n\n");
 }
 
@@ -196,6 +199,7 @@ async function imagesFor(model: string, opts: StepOpts): Promise<ContentPart[]> 
 }
 
 function withImages(a: AnalyzeInputArticle, text: string, images: ContentPart[]): string | ContentPart[] {
+  if (a.readingId) return `${text}\n\n正文读取版本：${a.readingId}。正文包含已读取的图片文字；事实以这些证据为准。`;
   const total = bodyImageUrls(a).length;
   const content = total ? `${text}\n\n${promptText("body-images", { total: String(total), attached: String(images.length) })}` : text;
   return images.length ? [{ type: "text", text: content }, ...images] : content;
@@ -302,7 +306,7 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
   const images = await imagesFor(model, opts);
   const original = translateInputOf(a);
   const t = images.length && !original.text.trim() ? { ...original, text: "正文见随附图片。请读取图片中的内容。" } : original;
-  const isX = t.sourceKind === "x_search";
+  const isX = !t.readingId && t.sourceKind === "x_search";
   const short = isShortTweetInput(t);
   const main = collapseWhitespace(t.mainText || t.title);
   const plain = { reasonZh: null, tags: null, receiptIds: [] as number[], reused: true };
@@ -411,6 +415,7 @@ export interface AnalyzeResult {
   stale: boolean;
   /** The article page is to be fetched first; nothing was committed. */
   needsBody?: boolean;
+  needsReading?: boolean;
   output: ReturnType<typeof normalizeAnalysis> | null;
   receiptIds: number[];
   reused: boolean;
@@ -425,6 +430,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}): Pr
   if (!input) return null;
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
   if (waitsForPage(input)) return { analysisId: null, stale: false, needsBody: true, output: null, receiptIds: [], reused: true };
+  if (await needsBodyReading(articleId)) return { analysisId: null, stale: false, needsReading: true, output: null, receiptIds: [], reused: true };
   const run = await runAnalysis(input, opts);
   const out = normalizeAnalysis(run);
   const receiptIds = [
@@ -439,12 +445,13 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}): Pr
     fact: out.fact,
   };
   const committed = await sql.begin(async (tx) => {
-    const [current] = await tx<{ revision: number }[]>`SELECT revision FROM articles WHERE id = ${articleId} FOR UPDATE`;
-    const stale = !current || current.revision !== input.revision;
+    const [current] = await tx<{ revision: number; reading_generation: number; accepted_reading_id: number | null }[]>`SELECT revision, reading_generation, accepted_reading_id FROM articles WHERE id = ${articleId} FOR UPDATE`;
+    const stale = !current || current.revision !== input.revision || current.reading_generation !== (input.readingGeneration ?? 0) ||
+      (!!input.readingId && current.accepted_reading_id !== input.readingId);
     const [row] = await tx<{ id: number }[]>`
-      INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, category, tags,
+      INSERT INTO analyses (article_id, input_revision, input_reading_id, origin, model, prompt_version, receipt_ids, relevance, category, tags,
         subjects, title_zh, summary_zh, reason_zh, score, selected, output)
-      VALUES (${articleId}, ${input.revision}, 'model', ${w?.model ?? run.prefilter.model}, ${ANALYZE_PROMPT_VERSION}, ${receiptIds},
+      VALUES (${articleId}, ${input.revision}, ${input.readingId ?? null}, 'model', ${w?.model ?? run.prefilter.model}, ${ANALYZE_PROMPT_VERSION}, ${receiptIds},
         ${out.relevance}, ${out.category}, ${out.tags}, ${out.subjects}, ${out.titleZh}, ${out.summaryZh}, ${out.reasonZh},
         ${out.score}, ${out.selected}, ${tx.json(detail as never)})
       RETURNING id`;

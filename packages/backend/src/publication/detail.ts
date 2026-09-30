@@ -37,7 +37,9 @@ function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
 
 async function loadRow(id: string): Promise<DetailRow | null> {
   const [row] = await sql<DetailRow[]>`
-    SELECT ${ITEM_COLUMNS}, a.body_html, a.body_text, a.body_status, tr.body_html AS tr_html, tr.complete AS tr_complete
+    SELECT ${ITEM_COLUMNS},
+      CASE WHEN p.input_revision IS NULL THEN a.body_html ELSE p.body_html END AS body_html,
+      CASE WHEN p.input_revision IS NULL THEN a.body_text ELSE p.body_text END AS body_text, a.body_status, tr.body_html AS tr_html, tr.complete AS tr_complete
     ${ITEM_FROM}
     WHERE p.article_id = ${id}`;
   return row ?? null;
@@ -53,6 +55,11 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
 
   const summary = toItemSummary(row);
   if (row.channel === "x") summary.x = xView(row, false, true);
+  if (row.reading_id && row.body_mode === "full" && summary.x) {
+    // These are already in the ordered reading, with immutable images and the quoted author.
+    summary.x.media = [];
+    summary.x.quoted = null;
+  }
   if (row.visibility === "summary-only") {
     const detail: ItemDetail = {
       ...summary,
@@ -80,7 +87,7 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
 
   let body: ItemDetail["body"] = null;
   let outline: OutlineEntry[] = [];
-  if (row.channel === "x") {
+  if (row.channel === "x" && !(row.reading_id && row.body_mode === "full")) {
     const text = String(row.x_post?.text ?? row.body_text ?? "");
     body = {
       zh: summary.x?.translation ? textToHtml(summary.x.translation) : null,
@@ -163,7 +170,7 @@ export async function exportMarkdown(id: string): Promise<{ filename: string; bo
   lines.push(`- 原文：${row.url}`, "");
   if (row.summary) lines.push("## 摘要", "", row.summary, "");
   if (row.selected && row.reason) lines.push("## 推荐理由", "", row.reason, "");
-  if (row.channel === "x" && row.x_post?.text) {
+  if (row.channel === "x" && row.x_post?.text && !(row.reading_id && row.body_mode === "full")) {
     lines.push("## 正文", "", String(row.x_post.text), "");
     if (row.zh_text) lines.push("## 中文译文", "", row.zh_text, "");
     const q = row.x_post.quoted as { handle?: string; text?: string; url?: string } | null | undefined;

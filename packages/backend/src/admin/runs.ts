@@ -4,6 +4,8 @@ import { sql } from "../db.ts";
 import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
 import { failureGroupSql, queueProcessing, requeueFailed } from "../jobs/content.ts";
+import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { bodyReadingMode } from "../content/reading-config.ts";
 
 const STALE_HEARTBEAT_MS = 3 * 60_000;
 
@@ -90,6 +92,17 @@ async function release(id: number, error: string, actor: string, note: string, b
   await sql`UPDATE receipt_attempts SET status = 'failed', error = ${error} WHERE receipt_id = ${id} AND status = 'unknown'`;
   const article = before.purpose === "analyze_article" ? /^article:([^@]+)@/.exec(before.subject ?? "")?.[1] : undefined;
   let requeued = false;
+  const readingId = /\/reading:(\d+)$/.exec(before.subject ?? "")?.[1];
+  if (["body_boundary", "body_reading"].includes(before.purpose) && readingId && bodyReadingMode() !== "off") {
+    const [r] = await sql<{ article_id: string; mode: "shadow" | "active"; request_key: string | null }[]>`
+      SELECT r.article_id, r.mode, r.request_key FROM article_readings r JOIN articles a ON a.id = r.article_id
+      WHERE r.id = ${readingId} AND r.input_revision = a.revision AND r.generation = a.reading_generation`;
+    if (r?.mode === "shadow") requeued = !!(await enqueue(QUEUES.readBody, { articleId: r.article_id, mode: "shadow", requestKey: r.request_key ?? undefined }, { singletonKey: `receipt:${id}` }));
+    else if (r && bodyReadingMode() === "active") {
+      await sql`UPDATE articles SET processing_state = 'new', processing_attempts = 0, processing_retry_at = NULL, processing_error = NULL WHERE id = ${r.article_id}`;
+      requeued = !!(await queueProcessing(r.article_id, { step: "read" }));
+    }
+  }
   if (article) {
     const [a] = await sql`UPDATE articles SET processing_state = 'new', processing_attempts = 0, processing_retry_at = NULL, processing_error = NULL
                           WHERE id = ${article} AND processing_state = 'failed' RETURNING id`;

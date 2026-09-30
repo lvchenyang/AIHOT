@@ -8,6 +8,7 @@ import { sql, type Db } from "../db.ts";
 import { extractArticleBody, pageFetchable } from "../content/extract.ts";
 import { analyzeArticle, AnalysisInterruptedError } from "../editorial/analyze.ts";
 import { isHistorical } from "../content/materials.ts";
+import { needsBodyReading, ReadingBusyError, ReadingInterruptedError } from "../content/reading.ts";
 import { publishArticle } from "../publication/publish.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { ModelOutputError } from "../providers/llm.ts";
@@ -22,7 +23,7 @@ const MAX_EXTRACT_FAILURES = 3;
 /** A queued article whose job left no trace for this long is queued again. */
 const QUEUED_STALE = "30 minutes";
 
-type Step = "extract" | "analyze";
+type Step = "extract" | "read" | "analyze";
 
 interface Route {
   step: Step;
@@ -49,7 +50,8 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
   const wantsBody = row.config.fetchPublicContent === true || !!row.config.detail || row.kind === "web_list";
   const needsPage = !signal && (wantsBody || (row.bare && pageFetchable(row.url, row.kind)));
   const needsXArticle = row.kind === "x_search" && (!signal || (row.participation_mode === "hot_signal" && !historical));
-  return { step: pending && (needsPage || needsXArticle) ? "extract" : "analyze", signal, historical };
+  const step = pending && (needsPage || needsXArticle) ? "extract" : !signal && await needsBodyReading(articleId, db) ? "read" : "analyze";
+  return { step, signal, historical };
 }
 
 /**
@@ -71,6 +73,7 @@ export async function queueProcessing(articleId: string, opts: { step?: Step; at
   const step = opts.step ?? r.step;
   await db`UPDATE articles SET processing_queued_at = now() WHERE id = ${articleId}`;
   if (step === "extract") return enqueue(QUEUES.extractBody, { articleId }, { singletonKey: articleId, priority: r.historical ? PRIORITY.history : PRIORITY.live }, opts.db);
+  if (step === "read") return enqueue(QUEUES.readBody, { articleId, silent: !!opts.attemptTag, mode: "active" }, { singletonKey: articleId, priority: r.historical ? PRIORITY.history : PRIORITY.live }, opts.db);
   if (r.signal && !opts.attemptTag) {
     return enqueue(QUEUES.group, { articleId, signalOnly: true }, { singletonKey: articleId, priority: r.historical ? PRIORITY.history : PRIORITY.liveSignal }, opts.db);
   }
@@ -108,15 +111,22 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
   try {
     const result = await analyzeArticle(articleId, { attemptTag: opts.attemptTag });
     if (!result) return { state: "missing" };
+    if (result.needsReading) {
+      await queueProcessing(articleId, { step: "read" });
+      return { state: "reading-body" };
+    }
     // Only a title or a feed summary: the article page first; extraction queues the analysis again.
     if (result.needsBody || !result.output) {
       await queueProcessing(articleId, { step: "extract" });
       return { state: "fetching-body" };
     }
     if (result.stale) return { state: "stale" }; // the newer revision has its own job
-    await publishArticle(articleId);
+    const published = await publishArticle(articleId);
     // History is archived but founds no event (isHistorical).
-    if (result.output.relevance === "pass" && !row.historical) await enqueue(QUEUES.group, { articleId }, { singletonKey: articleId, priority: PRIORITY.live });
+    if (published?.silent && Date.now() - row.discovered_at.getTime() > 48 * 3600_000) {
+      const stories = await sql<{ story_id: number }[]>`SELECT DISTINCT f.story_id FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id WHERE fa.article_id = ${articleId} AND f.story_id IS NOT NULL`;
+      for (const story of stories) await enqueue(QUEUES.digest, { storyId: story.story_id, afterCorrection: true }, { singletonKey: `story:${story.story_id}:correction` });
+    } else if (result.output.relevance === "pass" && !row.historical) await enqueue(QUEUES.group, { articleId, force: published?.readingChanged ?? false }, { singletonKey: articleId, priority: PRIORITY.live });
     return { state: result.output.relevance };
   } catch (error) {
     if (error instanceof AnalysisInterruptedError || shutdownSignal.signal.aborted) throw error;
@@ -130,30 +140,32 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
 }
 
 /** Waits and retries for passing trouble; marks "failed" for refusals and exhausted retries. */
-async function afterFailure(articleId: string, error: unknown): Promise<{ state: string; retryAt?: Date }> {
+export async function afterFailure(articleId: string, error: unknown, expected?: { revision: number; generation: number }): Promise<{ state: string; retryAt?: Date }> {
   // Let pg-boss retry this job after restart, reusing settled receipts. A deploy is not an article
   // failure and must neither consume processing_attempts nor turn an incomplete chain terminal.
-  if (error instanceof AnalysisInterruptedError || shutdownSignal.signal.aborted) throw error;
+  if (error instanceof AnalysisInterruptedError || error instanceof ReadingInterruptedError || shutdownSignal.signal.aborted) throw error;
   const message = String(error instanceof Error ? error.message : error).slice(0, 500);
-  if (error instanceof ReceiptBusyError || error instanceof BudgetExceededError) {
+  const current = expected ? sql`AND revision = ${expected.revision} AND reading_generation = ${expected.generation}` : sql``;
+  if (error instanceof ReceiptBusyError || error instanceof ReadingBusyError || error instanceof BudgetExceededError) {
     // Not the article's fault: the same request is in flight, or the budget window is full.
     const seconds = error instanceof BudgetExceededError ? error.retryAfterSeconds : 60;
     const retryAt = new Date(Date.now() + seconds * 1000);
-    await sql`UPDATE articles SET processing_state = 'new', processing_error = ${message}, processing_retry_at = ${retryAt}, processing_queued_at = NULL WHERE id = ${articleId}`;
+    await sql`UPDATE articles SET processing_state = 'new', processing_error = ${message}, processing_retry_at = ${retryAt}, processing_queued_at = NULL WHERE id = ${articleId} ${current}`;
     return { state: "waiting", retryAt };
   }
-  const [a] = await sql<{ processing_attempts: number }[]>`SELECT processing_attempts FROM articles WHERE id = ${articleId}`;
+  const [a] = await sql<{ processing_attempts: number }[]>`SELECT processing_attempts FROM articles WHERE id = ${articleId} ${current}`;
+  if (expected && !a) return { state: "stale" };
   const attempts = (a?.processing_attempts ?? 0) + 1;
   const refused = error instanceof ProviderRejectedError && !error.retryable;
   const exhausted = attempts > RETRY_MINUTES.length || (error instanceof ModelOutputError && attempts >= MAX_OUTPUT_FAILURES);
   if (refused || exhausted) {
     await sql`UPDATE articles SET processing_state = 'failed', processing_error = ${message}, processing_attempts = ${attempts},
-                processing_retry_at = NULL, processing_queued_at = NULL WHERE id = ${articleId}`;
+                processing_retry_at = NULL, processing_queued_at = NULL WHERE id = ${articleId} ${current}`;
     return { state: "failed" };
   }
   const retryAt = new Date(Date.now() + RETRY_MINUTES[attempts - 1]! * 60_000);
   await sql`UPDATE articles SET processing_state = 'new', processing_error = ${message}, processing_attempts = ${attempts},
-              processing_retry_at = ${retryAt}, processing_queued_at = NULL WHERE id = ${articleId}`;
+              processing_retry_at = ${retryAt}, processing_queued_at = NULL WHERE id = ${articleId} ${current}`;
   return { state: "retrying", retryAt };
 }
 
@@ -185,7 +197,7 @@ export async function registerExtractionJobs(boss: PgBoss) {
     const { articleId } = job.data;
     try {
       const state = await extractArticleBody(articleId);
-      await queueProcessing(articleId, { step: "analyze" });
+      await queueProcessing(articleId);
       return { state };
     } catch (error) {
       const message = String(error instanceof Error ? error.message : error).slice(0, 500);

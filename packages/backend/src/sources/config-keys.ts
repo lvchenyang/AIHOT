@@ -31,7 +31,7 @@ const NESTED: Record<string, string[]> = {
   itemUrlPrefixRewrite: ["from", "to"],
   requireBoolean: ["path", "equals"],
   minNumeric: ["path", "min"],
-  body: ["selector", "removeSelectors"],
+  body: ["selector", "removeSelectors", "images"],
   detail: [
     "maxFetches", "publishedAtSelector", "publishedAtRegex", "publishedAtUtcOffset", "publishedAtAuthoritative", "upgradeDatePrecision",
     "titleSelector", "titleRegex", "titleAuthoritative", "summarySelector",
@@ -64,6 +64,17 @@ export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string
       };
       if (body.selector !== undefined && !validSelector(body.selector)) out.push("body.selector (无效的选择器)");
       if (body.removeSelectors !== undefined && (!Array.isArray(body.removeSelectors) || !body.removeSelectors.every(validSelector))) out.push("body.removeSelectors (需要选择器数组)");
+      if (body.images !== undefined) {
+        const images = body.images as Record<string, unknown>;
+        if (!images || typeof images !== "object" || Array.isArray(images)) out.push("body.images (需要对象)");
+        else {
+          for (const [key, value] of Object.entries(images)) {
+            if (!["keepSelectors", "removeSelectors"].includes(key) || !Array.isArray(value) || value.length > 30 || !value.every(validSelector)) out.push(`body.images.${key} (需要有效选择器数组)`);
+          }
+          const kept = Array.isArray(images.keepSelectors) ? images.keepSelectors : [];
+          if (Array.isArray(images.removeSelectors) && images.removeSelectors.some((s) => kept.includes(s))) out.push("body.images (保留与排除规则不能相同)");
+        }
+      }
     }
   }
   return out;

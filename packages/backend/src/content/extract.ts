@@ -12,22 +12,22 @@ import { getArticle } from "../providers/socialdata.ts";
 import { onlyXArticleLink, xArticleText } from "../sources/x.ts";
 import { dropPageChrome } from "./sanitize.ts";
 import { bodyToMarkdown, markdownToBody } from "./markdown.ts";
-import { contentHash } from "./materials.ts";
+import { contentHash, type MediaItem, type XPostData } from "./materials.ts";
+import { bodyReadingMode } from "./reading-config.ts";
+import type { BodyRules } from "./blocks.ts";
+export type { BodyRules } from "./blocks.ts";
 
 export interface ExtractedBody {
   html: string;
   markdown: string;
   text: string;
+  snapshotHtml: string;
+  confirmed: boolean;
   images: Array<{ kind: "image"; url: string; width: number | null; height: number | null }>;
   via: "readability" | "selector" | "jina";
 }
 
 const MIN_BODY_CHARS = 200;
-
-export interface BodyRules {
-  selector?: string;
-  removeSelectors?: string[];
-}
 
 function extracted(html: string, url: string, via: ExtractedBody["via"], explicit = false): ExtractedBody | null {
   const markdown = bodyToMarkdown(html, url);
@@ -41,8 +41,9 @@ function extracted(html: string, url: string, via: ExtractedBody["via"], explici
     if (images.length >= 12 || !/^https?:\/\//.test(src) || images.some((image) => image.url === src)) return;
     images.push({ kind: "image", url: src, width: Number(img.attr("width")) || null, height: Number(img.attr("height")) || null });
   });
-  if (explicit ? !text.trim() && !images.length : text.length < MIN_BODY_CHARS) return null;
-  return { html: clean, markdown, text, images, via };
+  const confirmed = explicit ? !!text.trim() || images.length > 0 : text.length >= MIN_BODY_CHARS;
+  if (!confirmed && (bodyReadingMode() === "off" || !images.length)) return null;
+  return { html: clean, markdown, text, images, via, snapshotHtml: html, confirmed };
 }
 
 export function readable(html: string, url: string, rules: BodyRules = {}): ExtractedBody | null {
@@ -51,7 +52,8 @@ export function readable(html: string, url: string, rules: BodyRules = {}): Extr
     const selected = $(rules.selector);
     // Missing or ambiguous containers must never fall back to the whole page.
     if (selected.length !== 1) return null;
-    return extracted(dropPageChrome(selected.html() ?? "", rules.removeSelectors), url, "selector", true);
+    const got = extracted(dropPageChrome(selected.html() ?? "", rules.removeSelectors), url, "selector", true);
+    return got ? { ...got, snapshotHtml: dropPageChrome($.html(selected), rules.removeSelectors) } : null;
   }
   $("body > header, body > footer").remove();
   const { document } = parseHTML(dropPageChrome($.html(), rules.removeSelectors));
@@ -62,8 +64,17 @@ export function readable(html: string, url: string, rules: BodyRules = {}): Extr
   } catch {
     // no head
   }
-  const article = new Readability(document as unknown as ConstructorParameters<typeof Readability>[0], { charThreshold: MIN_BODY_CHARS, keepClasses: false }).parse();
-  return article?.content ? extracted(article.content, url, "readability") : null;
+  const article = new Readability(document as unknown as ConstructorParameters<typeof Readability>[0], { charThreshold: MIN_BODY_CHARS, keepClasses: true }).parse();
+  const result = article?.content ? extracted(article.content, url, "readability") : null;
+  if (result) return result;
+  // Keep an image-only candidate for semantic confirmation; never call it confirmed full text.
+  if (bodyReadingMode() !== "off") {
+    const candidate = $("article, main").first();
+    const html = candidate.length ? candidate.html() ?? "" : $("body").html() ?? "";
+    const got = extracted(dropPageChrome(html, rules.removeSelectors), url, "readability", true);
+    return got?.images.length ? { ...got, confirmed: false } : null;
+  }
+  return null;
 }
 
 export async function extractFromUrl(url: string, opts: { allowJina: boolean; subject: string; body?: BodyRules }): Promise<ExtractedBody | null> {
@@ -119,16 +130,16 @@ export async function extractArticleBody(articleId: string, allowJina = process.
   await sql.begin(async (tx) => {
     const [row] = await tx<{ title: string; excerpt: string | null }[]>`SELECT title, excerpt FROM articles WHERE id = ${articleId} FOR UPDATE`;
     if (!row) return;
-    const hash = contentHash({ title: row.title, bodyText: got.text, excerpt: row.excerpt });
+    const hash = contentHash({ title: row.title, bodyText: got.text, excerpt: row.excerpt, bodyHtml: got.html, media: got.images });
     const [r] = await tx<{ revision: number }[]>`
-      UPDATE articles SET body_html = ${got.html}, body_text = ${got.text}, body_status = 'ok',
+      UPDATE articles SET body_html = ${got.html}, body_snapshot_html = ${got.snapshotHtml}, body_snapshot_selector = ${a.config.body?.selector ?? null}, body_text = ${got.text}, body_status = ${got.confirmed ? "ok" : "unconfirmed"},
         media = ${tx.json(got.images as never)}::jsonb,
         revision = revision + 1, content_hash = ${hash}, processing_state = 'new', updated_at = now()
       WHERE id = ${articleId} RETURNING revision`;
     await tx`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)
              VALUES (${articleId}, ${r!.revision}, ${hash}, ${row.title}, ${got.text})`;
   });
-  return "ok";
+  return got.confirmed ? "ok" : "unconfirmed";
 }
 
 /**
@@ -145,12 +156,12 @@ async function extractXArticle(articleId: string, tweetId: string): Promise<"ok"
     return "unconfirmed";
   }
   await sql.begin(async (tx) => {
-    const [row] = await tx<{ title: string; excerpt: string | null; body_text: string | null; x_post: { text?: string } | null }[]>`
-      SELECT title, excerpt, body_text, x_post FROM articles WHERE id = ${articleId} FOR UPDATE`;
+    const [row] = await tx<{ title: string; excerpt: string | null; body_text: string | null; body_html: string | null; media: MediaItem[]; x_post: XPostData | null }[]>`
+      SELECT title, excerpt, body_text, body_html, media, x_post FROM articles WHERE id = ${articleId} FOR UPDATE`;
     if (!row) return;
     const title = got.title && onlyXArticleLink(row.x_post?.text) ? got.title : row.title;
     const bodyText = [row.body_text ?? "", got.title ? `# ${got.title}` : "", got.text].filter(Boolean).join("\n\n");
-    const hash = contentHash({ title, bodyText, excerpt: row.excerpt });
+    const hash = contentHash({ title, bodyText, excerpt: row.excerpt, bodyHtml: row.body_html, media: row.media, xPost: row.x_post });
     const [r] = await tx<{ revision: number }[]>`
       UPDATE articles SET title = ${title}, body_text = ${bodyText}, x_article = ${tx.json(got as never)}, body_status = 'ok',
         revision = revision + 1, content_hash = ${hash}, processing_state = 'new', updated_at = now()
